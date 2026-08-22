@@ -1,0 +1,26 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "freetoken": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "FreeToken",
+      "options": {
+        "baseURL": "http://127.0.0.1:1919/v1"
+      },
+      "models": {
+        "Qwen3.6-35B-A3B-NVFP4": {
+          "name": "Qwen3.6-35B-A3B-NVFP4",
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          }
+        }
+      }
+    }
+  },
+  "model": "freetoken/Qwen3.6-35B-A3B-NVFP4",
+  "compaction": {
+    "auto": true,
+    "threshold": 0.8
+  }
+}

@@ -1,0 +1,10 @@
+# Logs & runtime caches
+*.log
+__pycache__/
+.venv/
+node_modules/
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
