@@ -1,11 +1,12 @@
 # ==============================================================================
-# DeepSeek Harness (DSH) Optimized Layer-Cached Dockerfile (with nono Landlock)
+# DeepSeek Harness (DSH) Optimized Layer-Cached Dockerfile (User: dsh)
 # ==============================================================================
 FROM node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_ENV=production
-ENV DSH_HOME=/root/.dsh
+ENV HOME=/home/dsh
+ENV DSH_HOME=/home/dsh/.dsh
 ENV DEEPSEEK_BASE_URL=http://127.0.0.1:1919/v1
 ENV DEEPSEEK_API_KEY=dummy-key
 ENV FREETOKEN_API_KEY=dummy-key
@@ -26,21 +27,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     && rm -rf /var/lib/apt/lists/*
 
-# Install nono CLI
+# Install nono CLI globally
 RUN curl -fsSL https://nono.sh/install.sh | NONO_INSTALL_DIR=/usr/local/bin sh
 
 # ------------------------------------------------------------------------------
-# Layer 2: Directories & Workspace Setup (Cached permanently)
+# Layer 2: Create Dedicated 'dsh' Non-Root User (UID 1000 aligned with host)
 # ------------------------------------------------------------------------------
-RUN mkdir -p /root/.dsh /workspace/project /root/.npm
+RUN userdel -r node 2>/dev/null || true && \
+    groupadd -g 1000 dsh && \
+    useradd -u 1000 -g dsh -m -s /bin/bash -d /home/dsh dsh && \
+    mkdir -p /home/dsh/.dsh /home/dsh/.npm /workspace/project && \
+    chown -R dsh:dsh /home/dsh /workspace
+
 WORKDIR /workspace/project
 
 # ------------------------------------------------------------------------------
 # Layer 3: Static Agent Configuration & Credentials (Cached permanently)
 # ------------------------------------------------------------------------------
-COPY configs/dsh/settings.yaml /root/.dsh/settings.yaml
-COPY configs/dsh/.credentials.yaml /root/.dsh/.credentials.yaml
-RUN chmod 600 /root/.dsh/.credentials.yaml
+COPY --chown=dsh:dsh configs/dsh/settings.yaml /home/dsh/.dsh/settings.yaml
+COPY --chown=dsh:dsh configs/dsh/.credentials.yaml /home/dsh/.dsh/.credentials.yaml
+RUN chmod 600 /home/dsh/.dsh/.credentials.yaml
 
 EXPOSE 8080
 
@@ -50,6 +56,9 @@ EXPOSE 8080
 ARG DSH_VERSION=0.1.1-rc.2
 RUN npm install -g @deepseek-ai/dsh@${DSH_VERSION} --omit=dev --no-audit --no-fund
 
+# Switch to unprivileged dsh user
+USER dsh
+
 # Entrypoint automatically starts DSH Web encapsulated in nono Landlock kernel sandbox
-ENTRYPOINT ["nono", "run", "--profile", "node-dev", "--allow", ".", "--allow", "/root/.dsh", "--read", "/usr/local", "--allow-net", "--no-rollback-prompt", "--", "node", "--expose-internals", "/usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js", "web"]
+ENTRYPOINT ["nono", "run", "--profile", "node-dev", "--allow", ".", "--allow", "/home/dsh/.dsh", "--read", "/usr/local", "--listen-port", "8080", "--no-rollback-prompt", "--", "node", "--expose-internals", "/usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js", "web"]
 CMD ["--port", "8080", "--no-open"]
