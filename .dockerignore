@@ -1,0 +1,14 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+build
+dist
+*.egg-info
+.git
+.github
+logs
+assets
+freetoken-kernel-cache

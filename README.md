@@ -220,3 +220,50 @@ Pour vérifier que l'ensemble des 4 agents répondent correctement :
 ```bash
 ./scripts/test_agents.sh
 ```
+
+---
+
+## 🐳 Déploiement Containerisé (Docker avec support NVIDIA GPU)
+
+FreeToken peut être exécuté dans un conteneur Docker isolé avec support matériel complet (CUDA 13 + pass-through GPU NVIDIA RTX + mémoire partagée IPC) :
+
+### 1. Construction de l'image Docker
+```bash
+cd ~/Repos/FreeTokenLab
+docker build -t freetoken:latest .
+```
+
+### 2. Lancement avec `docker run`
+```bash
+./scripts/docker_run.sh "ornith-ai/Ornith-1.5-35B-A3B-NVFP4" 1919
+```
+Ou directement via la commande standard :
+```bash
+docker run -d \
+  --gpus all \
+  --ipc=host \
+  --name freetoken-server \
+  -p 1919:1919 \
+  -v /mnt/storage/huggingface:/mnt/storage/huggingface \
+  -v /mnt/storage/huggingface:/root/.cache/huggingface \
+  -e HF_HOME=/mnt/storage/huggingface \
+  freetoken:latest \
+  --model ornith-ai/Ornith-1.5-35B-A3B-NVFP4 \
+  --moe-backend auto \
+  --moe-cache-size 800 \
+  --num-tokens 32768 \
+  --max-prefill-length 2048 \
+  --memory-ratio 0.85 \
+  --host 0.0.0.0 \
+  --port 1919
+```
+
+### 3. Lancement avec `docker-compose`
+```bash
+docker compose up -d
+```
+
+### 4. Surveillance des logs du container
+```bash
+docker logs -f freetoken-server
+```
