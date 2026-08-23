@@ -34,7 +34,7 @@ jobs:
           UPSTREAM_TAG=$(echo "$LATEST_RELEASE" | jq -r '.tag_name // empty')
           
           if [ -z "$UPSTREAM_TAG" ] || [ "$UPSTREAM_TAG" == "null" ]; then
-            UPSTREAM_TAG=$(curl -fsSL https://api.github.com/repos/${UPSTREAM_REPO}/tags | jq -r '.[0].name // "main"')
+            UPSTREAM_TAG=$(curl -fsSL https://api.github.com/repos/${UPSTREAM_REPO}/tags | jq -r '.[0].name // "v0.1.2"')
           fi
           
           echo "Dernier tag FreeToken : $UPSTREAM_TAG"
@@ -46,8 +46,9 @@ jobs:
           UPSTREAM_TAG="${{ steps.upstream.outputs.upstream_tag }}"
           FORCE_BUILD="${{ github.event.inputs.force_build }}"
           
-          if git rev-parse "$UPSTREAM_TAG" >/dev/null 2>&1 && [ "$FORCE_BUILD" != "true" ]; then
-            echo "Tag $UPSTREAM_TAG déjà présent. Aucun build nécessaire."
+          # Check if the tag is already pinned in docker-compose.yml
+          if grep -q "freetoken:${UPSTREAM_TAG}" docker-compose.yml && [ "$FORCE_BUILD" != "true" ]; then
+            echo "Tag $UPSTREAM_TAG déjà présent et épinglé dans docker-compose.yml. Aucun build nécessaire."
             echo "need_build=false" >> $GITHUB_OUTPUT
           else
             echo "Nouveau tag FreeToken détecté ($UPSTREAM_TAG) !"
@@ -106,11 +107,11 @@ jobs:
         id: check_dsh_tag
         run: |
           DSH_VERSION="${{ steps.dsh.outputs.dsh_version }}"
-          TAG_NAME="dsh-v${DSH_VERSION}"
           FORCE_BUILD="${{ github.event.inputs.force_build }}"
           
-          if git rev-parse "$TAG_NAME" >/dev/null 2>&1 && [ "$FORCE_BUILD" != "true" ]; then
-            echo "Tag $TAG_NAME déjà traité. Pas de nouveau build."
+          # Check if the DSH version is already pinned in docker-compose.yml
+          if grep -q "freetoken-dsh:${DSH_VERSION}" docker-compose.yml && [ "$FORCE_BUILD" != "true" ]; then
+            echo "Version DSH $DSH_VERSION déjà présente et épinglée dans docker-compose.yml. Pas de nouveau build."
             echo "need_build=false" >> $GITHUB_OUTPUT
           else
             echo "Nouvelle version DSH détectée ($DSH_VERSION) !"

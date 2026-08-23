@@ -1,4 +1,4 @@
-name: Build and Publish Multi-Arch Docker Images (AMD64 & ARM64) to GHCR
+name: Build, Publish and Pin Docker Images to GHCR
 
 on:
   release:
@@ -20,13 +20,13 @@ on:
   workflow_dispatch:
     inputs:
       freetoken_ref:
-        description: 'FreeToken Git tag/ref (e.g. main, v0.1.2)'
+        description: 'FreeToken Git tag/ref (e.g. v0.1.2)'
         required: false
-        default: 'main'
+        default: 'v0.1.2'
       dsh_version:
-        description: 'DSH npm version (e.g. latest, 0.1.1-rc.2)'
+        description: 'DSH npm version (e.g. 0.1.1-rc.2)'
         required: false
-        default: 'latest'
+        default: '0.1.1-rc.2'
       platforms:
         description: 'Target architectures (comma-separated)'
         required: false
@@ -40,11 +40,11 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  build-freetoken:
-    name: Build FreeToken GPU (AMD64 & ARM64)
+  build-and-pin:
+    name: Build Multi-Arch Images and Pin docker-compose.yml
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: write
       packages: write
       attestations: write
       id-token: write
@@ -54,6 +54,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Free disk space on GitHub Runner
         run: |
@@ -77,113 +78,114 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine Upstream FreeToken Git Ref
-        id: ref
+      # ------------------------------------------------------------------------
+      # 1. Resolve Exact Tags for FreeToken and DSH
+      # ------------------------------------------------------------------------
+      - name: Resolve Upstream Versions
+        id: versions
         run: |
+          # 1. Resolve FreeToken version
           if [ -n "${{ github.event.inputs.freetoken_ref }}" ]; then
-            REF="${{ github.event.inputs.freetoken_ref }}"
+            FT_VERSION="${{ github.event.inputs.freetoken_ref }}"
           elif [ "${{ github.event_name }}" == "release" ]; then
-            REF="${{ github.event.release.tag_name }}"
+            FT_VERSION="${{ github.event.release.tag_name }}"
           elif [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
-            REF="${{ github.ref_name }}"
+            FT_VERSION="${{ github.ref_name }}"
           else
-            REF="main"
+            FT_VERSION=$(curl -s https://api.github.com/repos/FlashML-org/FreeToken/releases/latest | jq -r '.tag_name // empty')
+            if [ -z "$FT_VERSION" ] || [ "$FT_VERSION" == "null" ]; then
+              FT_VERSION=$(curl -s https://api.github.com/repos/FlashML-org/FreeToken/tags | jq -r '.[0].name // "v0.1.2"')
+            fi
           fi
-          echo "Building FreeToken from ref: $REF"
-          echo "freetoken_ref=$REF" >> $GITHUB_OUTPUT
 
+          # 2. Resolve DSH version
+          if [ -n "${{ github.event.inputs.dsh_version }}" ]; then
+            DSH_VER="${{ github.event.inputs.dsh_version }}"
+          elif [[ "${{ github.ref }}" =~ ^refs/tags/dsh-v ]]; then
+            DSH_VER="${GITHUB_REF_NAME#dsh-v}"
+          else
+            DSH_VER=$(curl -s https://registry.npmjs.org/@deepseek-ai/dsh | jq -r '."dist-tags".latest // "0.1.1-rc.2"')
+          fi
+
+          echo "Pinned FreeToken Tag: $FT_VERSION"
+          echo "Pinned DSH Version: $DSH_VER"
+          echo "ft_version=$FT_VERSION" >> $GITHUB_OUTPUT
+          echo "dsh_version=$DSH_VER" >> $GITHUB_OUTPUT
+
+      # ------------------------------------------------------------------------
+      # 2. Build and Push FreeToken GPU Image (Exact Tag)
+      # ------------------------------------------------------------------------
       - name: Extract Docker metadata for FreeToken
-        id: meta
+        id: meta_ft
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/freetoken
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.versions.outputs.ft_version }}
             type=sha,format=short,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event_name == 'release' }}
-            type=raw,value=${{ steps.ref.outputs.freetoken_ref }},enable=${{ steps.ref.outputs.freetoken_ref != 'main' }}
 
-      - name: Build and Push Multi-Arch FreeToken GPU Image
+      - name: Build and Push FreeToken Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
           build-args: |
-            FREETOKEN_REF=${{ steps.ref.outputs.freetoken_ref }}
+            FREETOKEN_REF=${{ steps.versions.outputs.ft_version }}
           push: ${{ github.event_name != 'pull_request' && (github.event.inputs.push != 'false') }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta_ft.outputs.tags }}
+          labels: ${{ steps.meta_ft.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  build-dsh:
-    name: Build DeepSeek Harness Web (AMD64 & ARM64)
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-      attestations: write
-      id-token: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU for Multi-Architecture Emulation
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry (GHCR)
-        if: ${{ github.event_name != 'pull_request' && (github.event.inputs.push != 'false') }}
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Determine DSH Version
-        id: dsh_meta
-        run: |
-          if [ -n "${{ github.event.inputs.dsh_version }}" ]; then
-            VERSION="${{ github.event.inputs.dsh_version }}"
-          elif [[ "${{ github.ref }}" =~ ^refs/tags/dsh-v ]]; then
-            VERSION="${GITHUB_REF_NAME#dsh-v}"
-          else
-            VERSION=$(curl -s https://registry.npmjs.org/@deepseek-ai/dsh | jq -r '."dist-tags".latest // "latest"')
-          fi
-          echo "DSH Version to build: $VERSION"
-          echo "dsh_version=$VERSION" >> $GITHUB_OUTPUT
-
+      # ------------------------------------------------------------------------
+      # 3. Build and Push DSH Image (Exact Tag)
+      # ------------------------------------------------------------------------
       - name: Extract Docker metadata for DSH
-        id: meta-dsh
+        id: meta_dsh
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/freetoken-dsh
           tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event_name == 'release' }}
-            type=raw,value=v${{ steps.dsh_meta.outputs.dsh_version }}
-            type=raw,value=${{ steps.dsh_meta.outputs.dsh_version }}
+            type=raw,value=${{ steps.versions.outputs.dsh_version }}
+            type=raw,value=v${{ steps.versions.outputs.dsh_version }}
+            type=sha,format=short,prefix=sha-
 
-      - name: Build and Push Multi-Arch DSH Image
+      - name: Build and Push DSH Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.dsh
           platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
           build-args: |
-            DSH_VERSION=${{ steps.dsh_meta.outputs.dsh_version }}
+            DSH_VERSION=${{ steps.versions.outputs.dsh_version }}
           push: ${{ github.event_name != 'pull_request' && (github.event.inputs.push != 'false') }}
-          tags: ${{ steps.meta-dsh.outputs.tags }}
-          labels: ${{ steps.meta-dsh.outputs.labels }}
+          tags: ${{ steps.meta_dsh.outputs.tags }}
+          labels: ${{ steps.meta_dsh.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # ------------------------------------------------------------------------
+      # 4. Rewrite and Pin docker-compose.yml with Exact Version Tags
+      # ------------------------------------------------------------------------
+      - name: Pin Image Tags in docker-compose.yml & Commit
+        run: |
+          FT_VER="${{ steps.versions.outputs.ft_version }}"
+          DSH_VER="${{ steps.versions.outputs.dsh_version }}"
+          OWNER="${{ github.repository_owner }}"
+
+          echo "Rewriting docker-compose.yml with pinned tags..."
+          sed -i "s|image: ghcr.io/${OWNER}/freetoken:.*|image: ghcr.io/${OWNER}/freetoken:${FT_VER}|g" docker-compose.yml
+          sed -i "s|image: ghcr.io/${OWNER}/freetoken-dsh:.*|image: ghcr.io/${OWNER}/freetoken-dsh:${DSH_VER}|g" docker-compose.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if ! git diff --quiet docker-compose.yml; then
+            echo "Changes detected in docker-compose.yml. Committing and pushing..."
+            git add docker-compose.yml
+            git commit -m "chore(compose): pin images to freetoken:${FT_VER} and dsh:${DSH_VER} [skip ci]"
+            git push origin HEAD:${{ github.ref_name }} || git push origin HEAD:main
+          else
+            echo "docker-compose.yml already contains the latest pinned tags. No commit needed."
+          fi
