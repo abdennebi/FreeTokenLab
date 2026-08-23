@@ -1,18 +1,29 @@
+agent-default-model:
+  provider: freetoken
+  model: Ornith-1.5-35B-A3B-NVFP4
+
 llm-deepseek:
-  baseURL: "http://127.0.0.1:1919/v1"
+  baseURL: http://127.0.0.1:1919/v1
 
 llm-pi-ai:
   providers:
     freetoken:
+      displayName: "FreeToken Local (Ornith 35B)"
       api: openai-completions
-      baseURL: "http://127.0.0.1:1919/v1"
-      apiKey: "dummy-key"
+      apiKey: "sk-freetoken"
+      apiKeyEnv: FREETOKEN_API_KEY
+      baseURL: http://127.0.0.1:1919/v1
+      defaultContextWindow: 65536
+      defaultMaxTokens: 8192
       models:
         - id: Ornith-1.5-35B-A3B-NVFP4
-          name: "Ornith 1.5 35B NVFP4 (Local MoE)"
+          name: "Ornith-1.5-35B-A3B-NVFP4"
           contextWindow: 65536
           maxTokens: 8192
+          input:
+            - text
+          compat:
+            supportsDeveloperRole: false
 
-defaultProvider: freetoken
-defaultModel: Ornith-1.5-35B-A3B-NVFP4
-defaultContextWindow: 65536
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
