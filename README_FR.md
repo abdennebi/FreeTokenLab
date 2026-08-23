@@ -6,6 +6,7 @@
 [![Docker Multi-Arch](https://img.shields.io/badge/Architecture-AMD64%20%7C%20ARM64-blue.svg)](https://github.com/abdennebi/FreeTokenLab/pkgs/container/freetoken)
 [![CUDA 13.0](https://img.shields.io/badge/NVIDIA-CUDA%2013.0-green.svg)](https://developer.nvidia.com/cuda-toolkit)
 [![DeepSeek Harness](https://img.shields.io/badge/DSH-v0.1.1--rc.2-blueviolet.svg)](https://github.com/deepseek-ai/deepseek-harness)
+[![Dependabot](https://img.shields.io/badge/Dependabot-Enabled-brightgreen.svg?logo=dependabot)](https://github.com/abdennebi/FreeTokenLab/security/dependabot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
 
 **FreeTokenLab** est un environnement clé en main permettant d'exécuter localement des modèles **Mixture-of-Experts (MoE) de 35 milliards de paramètres** sur des cartes graphiques grand public (**8 Go de VRAM**) couplé à l'interface et agent de code autonome **DeepSeek Harness (`dsh`)** avec bac à sable sécurisé **Bubblewrap**.
