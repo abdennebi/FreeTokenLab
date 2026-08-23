@@ -1,5 +1,5 @@
 # ==============================================================================
-# DeepSeek Harness (DSH) Optimized Layer-Cached Dockerfile
+# DeepSeek Harness (DSH) Optimized Layer-Cached Dockerfile (with nono & bwrap)
 # ==============================================================================
 FROM node:22-bookworm-slim
 
@@ -13,7 +13,7 @@ ENV OPENAI_API_BASE=http://127.0.0.1:1919/v1
 ENV OPENAI_API_KEY=dummy-key
 
 # ------------------------------------------------------------------------------
-# Layer 1: Base System Utilities & Bubblewrap Sandbox (Cached permanently)
+# Layer 1: Base System Utilities, Bubblewrap & nono (Landlock Sandbox) (Cached permanently)
 # ------------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bubblewrap \
@@ -22,8 +22,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     procps \
     ca-certificates \
+    tar \
     bash \
     && rm -rf /var/lib/apt/lists/*
+
+# Install nono CLI
+RUN curl -fsSL https://nono.sh/install.sh | NONO_INSTALL_DIR=/usr/local/bin sh
 
 # ------------------------------------------------------------------------------
 # Layer 2: Directories & Workspace Setup (Cached permanently)
