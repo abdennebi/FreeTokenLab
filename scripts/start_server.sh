@@ -9,7 +9,7 @@ cd "$REPO_ROOT"
 
 source "$HOME/Repos/FreeTokenLab/env.sh" || source .venv/bin/activate
 
-MODEL="${1:-nvidia/Qwen3.6-35B-A3B-NVFP4}"
+MODEL="${1:-ornith-ai/Ornith-1.5-35B-A3B-NVFP4}"
 HOST="${2:-127.0.0.1}"
 PORT="${3:-1919}"
 

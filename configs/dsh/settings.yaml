@@ -1,6 +1,6 @@
 agent-default-model:
   provider: freetoken
-  model: Qwen3.6-35B-A3B-NVFP4
+  model: Ornith-1.5-35B-A3B-NVFP4
 
 llm-pi-ai:
   providers:
@@ -12,13 +12,11 @@ llm-pi-ai:
       defaultContextWindow: 32768
       defaultMaxTokens: 4096
       models:
-        - id: Qwen3.6-35B-A3B-NVFP4
-          name: Qwen3.6-35B-A3B-NVFP4
+        - id: Ornith-1.5-35B-A3B-NVFP4
+          name: Ornith-1.5-35B-A3B-NVFP4
           contextWindow: 32768
           maxTokens: 4096
           input:
             - text
           compat:
             supportsDeveloperRole: false
-ui-onboarding:
-  welcomeNoticeVersion: 2026-08-13.1

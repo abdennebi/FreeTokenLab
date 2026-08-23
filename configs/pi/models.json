@@ -7,8 +7,8 @@
       "apiKey": "freetoken-local",
       "models": [
         {
-          "id": "Qwen3.6-35B-A3B-NVFP4",
-          "name": "Qwen3.6-35B-A3B-NVFP4",
+          "id": "Ornith-1.5-35B-A3B-NVFP4",
+          "name": "Ornith-1.5-35B-A3B-NVFP4",
           "contextWindow": 32768,
           "maxTokens": 4096,
           "input": ["text"],

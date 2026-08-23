@@ -33,7 +33,7 @@ runtime:
 # =============================================================================
 model:
   # Default model to use (can be overridden with --model flag)
-  default: "Qwen3.6-35B-A3B-NVFP4"
+  default: "Ornith-1.5-35B-A3B-NVFP4"
   
   # Inference provider selection:
   provider: "custom"

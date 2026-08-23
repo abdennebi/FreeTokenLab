@@ -1,6 +1,4 @@
 {
   "defaultProvider": "freetoken",
-  "defaultModel": "Qwen3.6-35B-A3B-NVFP4",
-  "lastChangelogVersion": "0.84.2",
-  "theme": "dark"
+  "defaultModel": "Ornith-1.5-35B-A3B-NVFP4"
 }
