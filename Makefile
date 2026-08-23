@@ -13,6 +13,7 @@ IMAGE_NAME ?= freetoken
 REGISTRY ?= ghcr.io
 OWNER ?= abdennebi
 TAG ?= latest
+PLATFORMS ?= linux/amd64,linux/arm64
 
 # Couleurs pour l'affichage
 CYAN  := \033[36m
@@ -26,7 +27,7 @@ help: ## Affiche l'aide et la liste des commandes disponibles
 	@echo -e "$(CYAN)══════════════════════════════════════════════════════════════$(RESET)"
 	@echo -e "$(GREEN)  FreeTokenLab — Commandes d'automatisation & Déploiement$(RESET)"
 	@echo -e "$(CYAN)══════════════════════════════════════════════════════════════$(RESET)"
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-22s$(RESET) %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-25s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 
 # ==============================================================================
@@ -57,21 +58,28 @@ ps: ## Affiche l'état des conteneurs Compose
 	@docker compose ps
 
 # ==============================================================================
-# 2. Construction des Images Docker
+# 2. Construction des Images Docker Multi-Architectures (AMD64 & ARM64)
 # ==============================================================================
 
 .PHONY: docker-build-all
-docker-build-all: docker-build docker-build-dsh ## Construit les deux images Docker (Moteur GPU + DSH Web)
+docker-build-all: docker-build docker-build-dsh ## Construit les deux images Docker locales
 
 .PHONY: docker-build
-docker-build: ## Construit l'image Docker FreeToken GPU (freetoken:latest)
+docker-build: ## Construit l'image Docker FreeToken GPU locale
 	@echo -e "$(GREEN)→ Construction de l'image Docker $(IMAGE_NAME):$(TAG)...$(RESET)"
 	@docker build -t $(IMAGE_NAME):$(TAG) -t $(REGISTRY)/$(OWNER)/$(IMAGE_NAME):$(TAG) .
 
 .PHONY: docker-build-dsh
-docker-build-dsh: ## Construit l'image Docker DeepSeek Harness Web avec Bubblewrap
+docker-build-dsh: ## Construit l'image Docker DeepSeek Harness Web locale
 	@echo -e "$(GREEN)→ Construction de l'image Docker freetoken-dsh:latest...$(RESET)"
 	@docker build -t freetoken-dsh:latest -t $(REGISTRY)/$(OWNER)/freetoken-dsh:latest -f Dockerfile.dsh .
+
+.PHONY: docker-multiarch
+docker-multiarch: ## Construit et publie les images Multi-Arch (linux/amd64,linux/arm64) sur GHCR
+	@echo -e "$(GREEN)→ Construction Multi-Arch $(PLATFORMS) pour FreeToken et DSH...$(RESET)"
+	@docker buildx build --platform $(PLATFORMS) -t $(REGISTRY)/$(OWNER)/$(IMAGE_NAME):$(TAG) --push .
+	@docker buildx build --platform $(PLATFORMS) -t $(REGISTRY)/$(OWNER)/freetoken-dsh:latest -f Dockerfile.dsh --push .
+	@echo -e "$(GREEN)✅ Publication Multi-Arch terminée sur $(REGISTRY)/$(OWNER)/$(RESET)"
 
 # ==============================================================================
 # 3. Installation & Environnement Hôte Natif (Optionnel)

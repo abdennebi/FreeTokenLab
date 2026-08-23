@@ -337,3 +337,22 @@ Le conteneur `dsh-web` intègre nativement **Bubblewrap** en mode privilégié (
 ```bash
 make down
 ```
+
+---
+
+## 🌍 Support Multi-Architectures (Linux AMD64 & ARM64)
+
+Toutes les images Docker sont désormais construites et publiées sous forme de **manifestes multi-architectures** (`linux/amd64` et `linux/arm64`) :
+
+| Image | Architectures Supportées | Plateformes Cibles |
+| :--- | :--- | :--- |
+| `ghcr.io/abdennebi/freetoken` | `linux/amd64`, `linux/arm64` | Intel/AMD x86_64, NVIDIA Grace Hopper (GH200), Jetson AGX Orin, AWS Graviton + NVIDIA GPU |
+| `ghcr.io/abdennebi/freetoken-dsh` | `linux/amd64`, `linux/arm64` | Linux x86_64, Apple Silicon (M1/M2/M3/M4), Raspberry Pi 5, serveurs ARM64 |
+
+### Utilisation automatique :
+Docker sélectionne et télécharge automatiquement la bonne architecture correspondant à votre machine hôte lors du `docker compose up` ou `docker pull`.
+
+### Construction Multi-Arch locale :
+```bash
+make docker-multiarch
+```
