@@ -9,6 +9,13 @@ services:
     ports:
       - "1919:1919"
     ipc: host
+    # --------------------------------------------------------------------------
+    # Limite de mémoire verrouillée (memlock: -1 / unlimited) :
+    # Indispensable pour l'inférence MoE-offload. Permet à PyTorch et FreeToken
+    # de verrouiller (pin) les tenseurs d'experts en RAM physique hôte via DMA
+    # (Direct Memory Access / cudaHostRegister). Évite le fallback en mémoire
+    # paginée (swap) et débloque 100% de la bande passante du bus PCIe (Gen3/4 x16).
+    # --------------------------------------------------------------------------
     ulimits:
       memlock:
         soft: -1

@@ -27,6 +27,10 @@
 
 ---
 
+
+> [!TIP]
+> **Streaming PCIe DMA & Limite `memlock`** : FreeToken transfère les experts MoE non-en-cache (~20 Go) depuis la RAM hôte vers le GPU via le bus PCIe. Le fichier `docker-compose.yml` définit `ulimits.memlock: -1` (mémoire verrouillée illimitée) pour permettre l'accès direct à la mémoire (DMA via `cudaHostRegister`) sans pagination, garantissant 100% de la bande passante PCIe (Gen3/Gen4 x16).
+
 ## 🏗️ Architecture de la Stack
 
 ```mermaid

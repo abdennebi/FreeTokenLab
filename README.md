@@ -28,6 +28,10 @@
 
 ---
 
+
+> [!TIP]
+> **PCIe DMA & `memlock` ulimit**: FreeToken streams un-cached MoE expert weights (20+ GB) from Host CPU RAM to GPU over the PCIe bus. `docker-compose.yml` configures `ulimits.memlock: -1` (unlimited pinned memory) to enable direct memory access (DMA) without paging overhead, guaranteeing maximum PCIe throughput.
+
 ## 🏗️ Architecture
 
 ```mermaid
