@@ -1,4 +1,4 @@
-name: Check Upstream FreeToken Releases & Trigger Build
+name: Check Upstream FreeToken & DSH Releases & Trigger Build
 
 on:
   schedule:
@@ -12,11 +12,10 @@ on:
         default: false
 
 jobs:
-  check-upstream:
+  check-upstream-freetoken:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-      packages: write
       actions: write
 
     steps:
@@ -25,7 +24,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch Latest Upstream Release
+      - name: Fetch Latest Upstream FreeToken Release
         id: upstream
         run: |
           UPSTREAM_REPO="FlashML-org/FreeToken"
@@ -35,11 +34,10 @@ jobs:
           UPSTREAM_TAG=$(echo "$LATEST_RELEASE" | jq -r '.tag_name // empty')
           
           if [ -z "$UPSTREAM_TAG" ] || [ "$UPSTREAM_TAG" == "null" ]; then
-            echo "Aucune release formelle trouvée, récupération du dernier tag..."
             UPSTREAM_TAG=$(curl -fsSL https://api.github.com/repos/${UPSTREAM_REPO}/tags | jq -r '.[0].name // "main"')
           fi
           
-          echo "Dernier tag amont détecté : $UPSTREAM_TAG"
+          echo "Dernier tag FreeToken : $UPSTREAM_TAG"
           echo "upstream_tag=$UPSTREAM_TAG" >> $GITHUB_OUTPUT
 
       - name: Check if Tag Already Processed
@@ -49,36 +47,101 @@ jobs:
           FORCE_BUILD="${{ github.event.inputs.force_build }}"
           
           if git rev-parse "$UPSTREAM_TAG" >/dev/null 2>&1 && [ "$FORCE_BUILD" != "true" ]; then
-            echo "Tag $UPSTREAM_TAG déjà présent et traité. Aucun nouveau build nécessaire."
+            echo "Tag $UPSTREAM_TAG déjà présent. Aucun build nécessaire."
             echo "need_build=false" >> $GITHUB_OUTPUT
           else
-            echo "Nouveau tag amont détecté ($UPSTREAM_TAG) ou build forcé !"
+            echo "Nouveau tag FreeToken détecté ($UPSTREAM_TAG) !"
             echo "need_build=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create Git Tag for New Upstream Version
-        if: steps.check_tag.outputs.need_build == 'true'
-        run: |
-          UPSTREAM_TAG="${{ steps.upstream.outputs.upstream_tag }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git tag -a "$UPSTREAM_TAG" -m "Automated build for upstream FreeToken $UPSTREAM_TAG" || true
-          git push origin "$UPSTREAM_TAG" || true
-
-      - name: Trigger Build & Publish Workflow
+      - name: Create Git Tag & Trigger FreeToken Build
         if: steps.check_tag.outputs.need_build == 'true'
         uses: actions/github-script@v7
         with:
           script: |
+            const tag = '${{ steps.upstream.outputs.upstream_tag }}';
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tag}`,
+                sha: context.sha
+              });
+            } catch (e) {
+              console.log('Tag existait déjà ou erreur creation ref:', e.message);
+            }
+            
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'build-publish-ghcr.yml',
               ref: context.ref,
               inputs: {
-                tag: '${{ steps.upstream.outputs.upstream_tag }}',
+                freetoken_ref: tag,
                 push: true
               }
             });
-            console.log('Workflow build-publish-ghcr.yml déclenché avec succès.');
+
+  check-upstream-dsh:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch Latest DSH npm Release
+        id: dsh
+        run: |
+          echo "Vérification des versions npm de @deepseek-ai/dsh..."
+          LATEST_DSH=$(curl -fsSL https://registry.npmjs.org/@deepseek-ai/dsh | jq -r '."dist-tags".latest // empty')
+          echo "Dernière version DSH disponible : $LATEST_DSH"
+          echo "dsh_version=$LATEST_DSH" >> $GITHUB_OUTPUT
+
+      - name: Check if DSH Tag Already Processed
+        id: check_dsh_tag
+        run: |
+          DSH_VERSION="${{ steps.dsh.outputs.dsh_version }}"
+          TAG_NAME="dsh-v${DSH_VERSION}"
+          FORCE_BUILD="${{ github.event.inputs.force_build }}"
+          
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1 && [ "$FORCE_BUILD" != "true" ]; then
+            echo "Tag $TAG_NAME déjà traité. Pas de nouveau build."
+            echo "need_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "Nouvelle version DSH détectée ($DSH_VERSION) !"
+            echo "need_build=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Git Tag & Trigger DSH Build
+        if: steps.check_dsh_tag.outputs.need_build == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.dsh.outputs.dsh_version }}';
+            const tag = `dsh-v${version}`;
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tag}`,
+                sha: context.sha
+              });
+            } catch (e) {
+              console.log('Tag DSH existait déjà:', e.message);
+            }
+            
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build-publish-ghcr.yml',
+              ref: context.ref,
+              inputs: {
+                dsh_version: version,
+                push: true
+              }
+            });

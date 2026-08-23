@@ -8,6 +8,7 @@ on:
       - main
     tags:
       - 'v*'
+      - 'dsh-v*'
     paths:
       - 'Dockerfile'
       - 'Dockerfile.dsh'
@@ -18,10 +19,14 @@ on:
       - '.github/workflows/build-publish-ghcr.yml'
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Image tag & Upstream ref (e.g. latest, v0.1.2, main)'
+      freetoken_ref:
+        description: 'FreeToken Git tag/ref (e.g. main, v0.1.2)'
         required: false
         default: 'main'
+      dsh_version:
+        description: 'DSH npm version (e.g. latest, 0.1.1-rc.2)'
+        required: false
+        default: 'latest'
       push:
         description: 'Push images to GHCR'
         type: boolean
@@ -62,6 +67,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine Upstream FreeToken Git Ref
+        id: ref
+        run: |
+          if [ -n "${{ github.event.inputs.freetoken_ref }}" ]; then
+            REF="${{ github.event.inputs.freetoken_ref }}"
+          elif [ "${{ github.event_name }}" == "release" ]; then
+            REF="${{ github.event.release.tag_name }}"
+          elif [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
+            REF="${{ github.ref_name }}"
+          else
+            REF="main"
+          fi
+          echo "Building FreeToken from ref: $REF"
+          echo "freetoken_ref=$REF" >> $GITHUB_OUTPUT
+
       - name: Extract Docker metadata for FreeToken
         id: meta
         uses: docker/metadata-action@v5
@@ -74,20 +94,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short,prefix=sha-
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event_name == 'release' }}
-
-      - name: Determine Upstream Git Ref
-        id: ref
-        run: |
-          if [ -n "${{ github.event.inputs.tag }}" ]; then
-            REF="${{ github.event.inputs.tag }}"
-          elif [ "${{ github.event_name }}" == "release" ]; then
-            REF="${{ github.event.release.tag_name }}"
-          elif [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
-            REF="${{ github.ref_name }}"
-          else
-            REF="main"
-          fi
-          echo "freetoken_ref=$REF" >> $GITHUB_OUTPUT
+            type=raw,value=${{ steps.ref.outputs.freetoken_ref }},enable=${{ steps.ref.outputs.freetoken_ref != 'main' }}
 
       - name: Build and Push FreeToken GPU Image
         uses: docker/build-push-action@v5
@@ -125,6 +132,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine DSH Version
+        id: dsh_meta
+        run: |
+          if [ -n "${{ github.event.inputs.dsh_version }}" ]; then
+            VERSION="${{ github.event.inputs.dsh_version }}"
+          elif [[ "${{ github.ref }}" =~ ^refs/tags/dsh-v ]]; then
+            VERSION="${GITHUB_REF_NAME#dsh-v}"
+          else
+            VERSION=$(curl -s https://registry.npmjs.org/@deepseek-ai/dsh | jq -r '."dist-tags".latest // "latest"')
+          fi
+          echo "DSH Version to build: $VERSION"
+          echo "dsh_version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Extract Docker metadata for DSH
         id: meta-dsh
         uses: docker/metadata-action@v5
@@ -134,12 +154,16 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event_name == 'release' }}
+            type=raw,value=v${{ steps.dsh_meta.outputs.dsh_version }}
+            type=raw,value=${{ steps.dsh_meta.outputs.dsh_version }}
 
       - name: Build and Push DSH Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.dsh
+          build-args: |
+            DSH_VERSION=${{ steps.dsh_meta.outputs.dsh_version }}
           push: ${{ github.event_name != 'pull_request' && (github.event.inputs.push != 'false') }}
           tags: ${{ steps.meta-dsh.outputs.tags }}
           labels: ${{ steps.meta-dsh.outputs.labels }}

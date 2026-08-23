@@ -13,8 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     && rm -rf /var/lib/apt/lists/*
 
-# Install DeepSeek Harness globally
-RUN npm install -g @deepseek-ai/dsh@0.1.1-rc.2
+# Configurable DSH version (passed as build-arg from CI or default latest)
+ARG DSH_VERSION=latest
+RUN npm install -g @deepseek-ai/dsh@${DSH_VERSION}
 
 # Setup default DSH directory and configuration
 RUN mkdir -p /root/.dsh /workspace/project
