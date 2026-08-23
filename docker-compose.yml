@@ -22,6 +22,23 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    command:
+      - "--model"
+      - "ornith-ai/Ornith-1.5-35B-A3B-NVFP4"
+      - "--moe-backend"
+      - "auto"
+      - "--moe-cache-size"
+      - "800"
+      - "--num-tokens"
+      - "65536"
+      - "--max-prefill-length"
+      - "1024"
+      - "--memory-ratio"
+      - "0.92"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "1919"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:1919/v1/models || exit 1"]
       interval: 10s

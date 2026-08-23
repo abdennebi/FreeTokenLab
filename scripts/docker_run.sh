@@ -1,33 +1,40 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# docker_run.sh — Lancement du container FreeToken avec support NVIDIA GPU
-# ==============================================================================
 set -euo pipefail
 
 MODEL="${1:-ornith-ai/Ornith-1.5-35B-A3B-NVFP4}"
 PORT="${2:-1919}"
+CONTAINER_NAME="freetoken-server"
 
 echo "========================================================"
-echo "  🐳 Démarrage de FreeToken dans Docker (GPU NVIDIA)"
-echo "  Modèle   : $MODEL"
-echo "  Port     : $PORT"
-echo "  Stockage : /mnt/storage/huggingface monté"
+echo "  Démarrage de FreeToken (Docker GPU - 64k Context 65536)"
+echo "========================================================"
+echo "  • Modèle             : $MODEL"
+echo "  • Port               : $PORT"
+echo "  • Memory Ratio       : 0.92"
+echo "  • Max Prefill Length : 1024"
+echo "  • MoE Cache Size     : 800 slots"
+echo "  • KV Cache Tokens    : 65536 (64k context)"
 echo "========================================================"
 
-docker run --rm -it \
+docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+
+docker run -d \
   --gpus all \
   --ipc=host \
-  --name freetoken-server \
+  --name "$CONTAINER_NAME" \
   -p "${PORT}:1919" \
   -v /mnt/storage/huggingface:/mnt/storage/huggingface \
   -v /mnt/storage/huggingface:/root/.cache/huggingface \
   -e HF_HOME=/mnt/storage/huggingface \
-  freetoken:latest \
+  ghcr.io/abdennebi/freetoken:v0.1.2 \
   --model "$MODEL" \
   --moe-backend auto \
   --moe-cache-size 800 \
-  --num-tokens 32768 \
-  --max-prefill-length 2048 \
-  --memory-ratio 0.85 \
+  --num-tokens 65536 \
+  --max-prefill-length 1024 \
+  --memory-ratio 0.92 \
   --host 0.0.0.0 \
   --port 1919
+
+echo "✓ Conteneur $CONTAINER_NAME démarré en arrière-plan."
+echo "→ Pour suivre les logs : docker logs -f $CONTAINER_NAME"

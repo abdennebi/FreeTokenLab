@@ -1,22 +1,17 @@
-agent-default-model:
-  provider: freetoken
-  model: Ornith-1.5-35B-A3B-NVFP4
+defaultProvider: freetoken
+defaultModel: Ornith-1.5-35B-A3B-NVFP4
+defaultContextWindow: 65536
 
-llm-pi-ai:
-  providers:
-    freetoken:
-      displayName: FreeToken Local (Docker)
-      apiKeyEnv: FREETOKEN_API_KEY
-      api: openai-completions
-      baseURL: http://freetoken:1919/v1
-      defaultContextWindow: 32768
-      defaultMaxTokens: 4096
-      models:
-        - id: Ornith-1.5-35B-A3B-NVFP4
-          name: Ornith-1.5-35B-A3B-NVFP4
-          contextWindow: 32768
-          maxTokens: 4096
-          input:
-            - text
-          compat:
-            supportsDeveloperRole: false
+providers:
+  freetoken:
+    type: openai-compatible
+    baseUrl: "http://127.0.0.1:1919/v1"
+    apiKey: "dummy-key"
+    models:
+      - id: Ornith-1.5-35B-A3B-NVFP4
+        name: "Ornith 1.5 35B NVFP4 (Local MoE)"
+        contextWindow: 65536
+        maxOutputTokens: 8192
+        features:
+          thinking: true
+          toolCalls: true
