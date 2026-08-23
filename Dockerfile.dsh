@@ -31,13 +31,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL https://nono.sh/install.sh | NONO_INSTALL_DIR=/usr/local/bin sh
 
 # ------------------------------------------------------------------------------
-# Layer 2: Create Dedicated 'dsh' Non-Root User (UID 1000 aligned with host)
+# Layer 2: Create Dedicated 'dsh' Non-Root User & nono state directory
 # ------------------------------------------------------------------------------
 RUN userdel -r node 2>/dev/null || true && \
     groupadd -g 1000 dsh && \
     useradd -u 1000 -g dsh -m -s /bin/bash -d /home/dsh dsh && \
-    mkdir -p /home/dsh/.dsh /home/dsh/.npm /workspace/project && \
-    chown -R dsh:dsh /home/dsh /workspace
+    mkdir -p /home/dsh/.dsh /home/dsh/.npm /workspace/project /var/nono && \
+    chown -R dsh:dsh /home/dsh /workspace /var/nono
 
 WORKDIR /workspace/project
 
@@ -46,6 +46,7 @@ WORKDIR /workspace/project
 # ------------------------------------------------------------------------------
 COPY --chown=dsh:dsh configs/dsh/settings.yaml /home/dsh/.dsh/settings.yaml
 COPY --chown=dsh:dsh configs/dsh/.credentials.yaml /home/dsh/.dsh/.credentials.yaml
+COPY --chmod=755 configs/dsh/dsh-entrypoint.sh /usr/local/bin/dsh-entrypoint.sh
 RUN chmod 600 /home/dsh/.dsh/.credentials.yaml
 
 EXPOSE 8080
@@ -59,6 +60,5 @@ RUN npm install -g @deepseek-ai/dsh@${DSH_VERSION} --omit=dev --no-audit --no-fu
 # Switch to unprivileged dsh user
 USER dsh
 
-# Entrypoint automatically starts DSH Web encapsulated in nono Landlock kernel sandbox
-ENTRYPOINT ["nono", "run", "--profile", "node-dev", "--allow", ".", "--allow", "/home/dsh/.dsh", "--read", "/usr/local", "--listen-port", "8080", "--no-rollback-prompt", "--", "node", "--expose-internals", "/usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js", "web"]
+ENTRYPOINT ["/usr/local/bin/dsh-entrypoint.sh"]
 CMD ["--port", "8080", "--no-open"]
