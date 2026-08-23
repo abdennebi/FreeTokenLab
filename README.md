@@ -313,3 +313,27 @@ Deux workflows GitHub Actions automatisent le cycle de vie CI/CD :
 2. **[`upstream-sync-release.yml`](.github/workflows/upstream-sync-release.yml)** :
    - Sonde toutes les 6 heures le dépôt amont [`FlashML-org/FreeToken`](https://github.com/FlashML-org/FreeToken).
    - Dès qu'une nouvelle version amont est publiée, le workflow crée automatiquement le tag correspondant et déclenche la compilation et publication de la nouvelle image Docker sur **GHCR.io**.
+
+---
+
+## ⚡ Expérience "One-Click" avec DeepSeek Harness Web UI
+
+Grâce à Docker Compose et Bubblewrap, vous pouvez démarrer l'ensemble de la stack (Serveur GPU + Interface Web DSH) en une seule commande :
+
+```bash
+cd ~/Repos/FreeTokenLab
+
+# Démarrer le moteur GPU et l'interface Web DSH
+make up
+
+# Ouvrir l'interface dans votre navigateur
+make open   # ou rendez-vous sur http://127.0.0.1:8080
+```
+
+### 🔒 Sandboxing avec Bubblewrap (`bwrap`)
+Le conteneur `dsh-web` intègre nativement **Bubblewrap** en mode privilégié (`privileged: true`), permettant à l'agent DeepSeek Harness d'isoler l'exécution des commandes shell et des outils sans risque pour la machine hôte.
+
+### 🛑 Arrêter la stack
+```bash
+make down
+```

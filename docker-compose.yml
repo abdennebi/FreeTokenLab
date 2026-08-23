@@ -22,3 +22,24 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:1919/v1/models || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  dsh:
+    build:
+      context: .
+      dockerfile: Dockerfile.dsh
+    image: freetoken-dsh:latest
+    container_name: dsh-web
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    volumes:
+      - ./:/workspace/project
+    depends_on:
+      freetoken:
+        condition: service_healthy
