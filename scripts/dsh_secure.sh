@@ -4,7 +4,6 @@
 # ==============================================================================
 set -euo pipefail
 
-# Ensure nono is available in PATH
 export PATH="$HOME/.local/bin:$PATH"
 if ! command -v nono &>/dev/null; then
     echo "→ nono n'est pas encore installé. Installation automatique..."
@@ -12,7 +11,6 @@ if ! command -v nono &>/dev/null; then
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
-# Environment variables routing DSH to local FreeToken engine
 export DEEPSEEK_BASE_URL="http://127.0.0.1:1919/v1"
 export DEEPSEEK_API_KEY="dummy-key"
 export FREETOKEN_API_KEY="dummy-key"
@@ -35,7 +33,6 @@ echo "  • Mode d'exécution          : dsh $MODE"
 echo "========================================================"
 
 exec nono run \
-  --profile node-dev \
   --allow . \
   --allow "$HOME/.dsh" \
   --read "$HOME/.local/bin" \
