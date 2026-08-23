@@ -31,17 +31,22 @@ help: ## Affiche l'aide et la liste des commandes disponibles
 	@echo ""
 
 # ==============================================================================
-# 1. Déploiement "One-Click" Docker Compose (Recommandé)
+# 1. Déploiement "One-Click" Prêt à l'Emploi (Pull GHCR Automatique)
 # ==============================================================================
 
 .PHONY: up
-up: ## Lance l'expérience One-Click : Moteur GPU + Interface Web DSH (docker compose up -d)
+up: ## Lance la stack One-Click (télécharge automatiquement les images précompilées de GHCR)
 	@echo -e "$(GREEN)→ Démarrage de la stack Docker Compose (FreeToken GPU + DSH Web UI)...$(RESET)"
 	@docker compose up -d
 	@echo -e "$(GREEN)══════════════════════════════════════════════════════════════$(RESET)"
 	@echo -e "$(GREEN)  ✓ Serveur Inférence : http://127.0.0.1:$(PORT)/v1$(RESET)"
 	@echo -e "$(GREEN)  ✓ DeepSeek Harness  : http://127.0.0.1:$(DSH_PORT)$(RESET)"
 	@echo -e "$(GREEN)══════════════════════════════════════════════════════════════$(RESET)"
+
+.PHONY: pull
+pull: ## Télécharge les dernières images précompilées officielles depuis GHCR.io
+	@echo -e "$(GREEN)→ Téléchargement des dernières images depuis GHCR.io...$(RESET)"
+	@docker compose pull
 
 .PHONY: down
 down: ## Éteint proprement l'ensemble des conteneurs (docker compose down)
@@ -58,21 +63,21 @@ ps: ## Affiche l'état des conteneurs Compose
 	@docker compose ps
 
 # ==============================================================================
-# 2. Construction des Images Docker Multi-Architectures (AMD64 & ARM64)
+# 2. Construction Locale des Images (Pour Développeurs & Contributeurs)
 # ==============================================================================
 
 .PHONY: docker-build-all
-docker-build-all: docker-build docker-build-dsh ## Construit les deux images Docker locales
+docker-build-all: docker-build docker-build-dsh ## Compile localement les deux images Docker (Moteur GPU + DSH Web)
 
 .PHONY: docker-build
-docker-build: ## Construit l'image Docker FreeToken GPU locale
-	@echo -e "$(GREEN)→ Construction de l'image Docker $(IMAGE_NAME):$(TAG)...$(RESET)"
-	@docker build -t $(IMAGE_NAME):$(TAG) -t $(REGISTRY)/$(OWNER)/$(IMAGE_NAME):$(TAG) .
+docker-build: ## Compile localement l'image Docker FreeToken GPU
+	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/$(IMAGE_NAME):$(TAG)...$(RESET)"
+	@docker compose build freetoken
 
 .PHONY: docker-build-dsh
-docker-build-dsh: ## Construit l'image Docker DeepSeek Harness Web locale
-	@echo -e "$(GREEN)→ Construction de l'image Docker freetoken-dsh:latest...$(RESET)"
-	@docker build -t freetoken-dsh:latest -t $(REGISTRY)/$(OWNER)/freetoken-dsh:latest -f Dockerfile.dsh .
+docker-build-dsh: ## Compile localement l'image Docker DeepSeek Harness Web
+	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/freetoken-dsh:latest...$(RESET)"
+	@docker compose build dsh
 
 .PHONY: docker-multiarch
 docker-multiarch: ## Construit et publie les images Multi-Arch (linux/amd64,linux/arm64) sur GHCR
@@ -82,7 +87,7 @@ docker-multiarch: ## Construit et publie les images Multi-Arch (linux/amd64,linu
 	@echo -e "$(GREEN)✅ Publication Multi-Arch terminée sur $(REGISTRY)/$(OWNER)/$(RESET)"
 
 # ==============================================================================
-# 3. Installation & Environnement Hôte Natif (Optionnel)
+# 3. Installation & Environnement Hôte Natif (Optionnel sans Docker)
 # ==============================================================================
 
 .PHONY: init-all

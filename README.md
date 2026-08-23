@@ -62,7 +62,9 @@ flowchart TD
 
 ---
 
-## ⚡ Quick Start (One-Click Experience)
+## ⚡ Quick Start (Zero-Build One-Click Experience)
+
+No need to install CUDA, Python, or Node.js on your host machine. Pre-built multi-architecture images are automatically pulled from **GitHub Container Registry (`ghcr.io`)**.
 
 ### Prerequisites
 - Linux (x86_64 or ARM64)
@@ -75,13 +77,11 @@ git clone https://github.com/abdennebi/FreeTokenLab.git
 cd FreeTokenLab
 ```
 
-### 2. Launch the Stack
+### 2. Launch the Stack (Instant Pull & Start)
 ```bash
 make up
 ```
-*This command starts:*
-1. The **FreeToken GPU Server** (listening on `http://127.0.0.1:1919`).
-2. The **DeepSeek Harness Web Interface** (listening on `http://127.0.0.1:8080`).
+> 💡 *Docker will automatically pull `ghcr.io/abdennebi/freetoken:latest` and `ghcr.io/abdennebi/freetoken-dsh:latest` directly from GHCR.*
 
 ### 3. Open in Browser
 ```bash
@@ -89,7 +89,13 @@ make open
 ```
 Or navigate directly to **[http://127.0.0.1:8080](http://127.0.0.1:8080)**.
 
-### 4. Stop the Stack
+### 4. Update to the Latest Releases
+Whenever a new release of FreeToken or DeepSeek Harness is published, simply run:
+```bash
+make pull && make up
+```
+
+### 5. Stop the Stack
 ```bash
 make down
 ```

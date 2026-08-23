@@ -1,9 +1,9 @@
 services:
   freetoken:
+    image: ghcr.io/abdennebi/freetoken:latest
     build:
       context: .
       dockerfile: Dockerfile
-    image: freetoken:latest
     container_name: freetoken-server
     restart: unless-stopped
     ports:
@@ -30,10 +30,10 @@ services:
       start_period: 30s
 
   dsh:
+    image: ghcr.io/abdennebi/freetoken-dsh:latest
     build:
       context: .
       dockerfile: Dockerfile.dsh
-    image: freetoken-dsh:latest
     container_name: dsh-web
     restart: unless-stopped
     privileged: true
