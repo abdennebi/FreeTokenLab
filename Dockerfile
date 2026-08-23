@@ -1,7 +1,7 @@
 # ==============================================================================
 # FreeToken Multi-Stage / Layer-Cached Optimized Dockerfile
 # ==============================================================================
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
+FROM nvidia/cuda:13.3.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
