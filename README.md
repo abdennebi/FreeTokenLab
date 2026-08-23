@@ -1,358 +1,190 @@
-# 🧪 FreeTokenLab — Guide d'Installation & Déploiement Complet
+# ⚡ FreeTokenLab
 
-Bienvenue dans le laboratoire **FreeTokenLab**. Ce dépôt rassemble toute la documentation, les scripts d'automatisation et les configurations pré-calibrées pour déployer **FreeToken** et son écosystème d'**Agents de Codage IA** sur une machine Linux (avec GPU NVIDIA).
+[![CI/CD & GHCR Release](https://github.com/abdennebi/FreeTokenLab/actions/workflows/build-publish-ghcr.yml/badge.svg)](https://github.com/abdennebi/FreeTokenLab/actions/workflows/build-publish-ghcr.yml)
+[![Docker Multi-Arch](https://img.shields.io/badge/Architecture-AMD64%20%7C%20ARM64-blue.svg)](https://github.com/abdennebi/FreeTokenLab/pkgs/container/freetoken)
+[![CUDA 13.0](https://img.shields.io/badge/NVIDIA-CUDA%2013.0-green.svg)](https://developer.nvidia.com/cuda-toolkit)
+[![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
+[![French Doc](https://img.shields.io/badge/Lang-Français-red.svg)](README_FR.md)
 
----
+**FreeTokenLab** is a turnkey, production-ready environment for running massive Mixture-of-Experts (MoE) LLMs (such as **Ornith-1.5-35B-A3B-NVFP4** and **Qwen3.6-35B-A3B-NVFP4**) on consumer-grade hardware (**8 GB VRAM NVIDIA GPUs**) paired with autonomous AI coding agents (**DeepSeek Harness**, **OpenCode**, **Pi Coding Agent**, and **Hermes Agent**).
 
-## 📑 Sommaire
-1. [Architecture & Spécifications Matérielles](#-architecture--spécifications-matérielles)
-2. [Structure du Projet FreeTokenLab](#-structure-du-projet-freetokenlab)
-3. [Installation Rapide (en 4 commandes)](#-installation-rapide-en-4-commandes)
-4. [Guide Détaillé Pas-à-Pas](#-guide-détaillé-pas-à-pas)
-   - [Étape 1 : Prérequis système & Python](#étape-1--prérequis-système--python)
-   - [Étape 2 : Compilation & Calibration de FreeToken](#étape-2--compilation--calibration-de-freetoken)
-   - [Étape 3 : Démarrage du Serveur FreeToken](#étape-3--démarrage-du-serveur-freetoken)
-   - [Étape 4 : Installation & Configuration des 4 Agents](#étape-4--installation--configuration-des-4-agents)
-5. [Guide d'Utilisation des 4 Agents IA](#-guide-dutilisation-des-4-agents-ia)
-   - [1. OpenCode](#1-opencode)
-   - [2. Pi Coding Agent](#2-pi-coding-agent)
-   - [3. DeepSeek Harness (dsh)](#3-deepseek-harness-dsh)
-   - [4. Hermes Agent](#4-hermes-agent)
-6. [Surveillance & Contrôle en Direct](#-surveillance--contrôle-en-direct)
+> 🇫🇷 *Une documentation complète en français est disponible dans [README_FR.md](README_FR.md).*
 
 ---
 
-## ⚡ Architecture & Spécifications Matérielles
+## 🌟 Key Features
 
-Cette configuration est spécifiquement optimisée pour les machines disposant d'un GPU grand public (ex. **RTX 3070 8 Go**) couplé à une mémoire vive standard (**32 Go DDR4/DDR5**) et un processeur multicœur (**AVX2**).
-
-| Composant | Rôle dans FreeToken | Dimensionnement Recommandé |
-| :--- | :--- | :--- |
-| **GPU VRAM (8 Go)** | Poids denses (3.1 Go) + Cache MoE LRU (1.3 Go) + Cache KV (32K tokens, 640 Mo) + Tenseurs d'activation | **~6.8 Go occupés** (marge de sécurité de 1.2 Go) |
-| **RAM Hôte (32 Go)** | Stockage complet des 256 experts NVFP4 en mémoire paginée épinglée (*pinned memory*) | **~19 Go occupés** |
-| **CPU (8+ cœurs)** | Exécution concurrente des experts non-cachés via noyaux C++ AVX2 (`_cpu_moe`) | **7 threads de calcul** |
-| **PCIe (Gen3/Gen4)** | Préchangement asynchrone des experts GPU (taux de préchargement de 21.6%) | **Bande passante ~12-16 Go/s** |
+- **🚀 One-Click Multi-Container Stack**: Spin up both the GPU inference engine and the **DeepSeek Harness Web UI** with a single command (`make up`).
+- **🧠 35B Parameter Models on 8GB VRAM**: Leverages hybrid CPU/GPU MoE offloading with NVFP4 quantization, pinning 800 expert slots in VRAM and streaming others via PCIe.
+- **🔒 Secure Sandboxing with Bubblewrap**: Native Linux kernel namespace isolation for safe AI agent tool and bash execution.
+- **🤖 4 Pre-Configured AI Coding Agents**:
+  - **DeepSeek Harness (`dsh`)**: Modern browser GUI & headless CLI agent.
+  - **OpenCode (`opencode`)**: Fast TUI terminal pair programmer.
+  - **Pi Coding Agent (`pi`)**: Lightweight code reviewer and CLI agent.
+  - **Hermes Agent (`hermes`)**: Nous Research autonomous agent.
+- **🌍 Multi-Architecture Support**: Official Docker images for both `linux/amd64` (x86_64) and `linux/arm64` (Apple Silicon, NVIDIA Jetson/Grace Hopper, AWS Graviton).
+- **🔄 Automated CI/CD & Upstream Sync**: Automatic rebuilds and pushes to **GHCR.io** whenever new upstream releases of FreeToken or DSH are detected.
 
 ---
 
-## 📂 Structure du Projet FreeTokenLab
+## 🏗️ Architecture Overview
 
-```text
-FreeTokenLab/
-├── README.md                # Le présent guide complet
-├── env.sh                   # Script d'export des variables d'environnement & PATH
-│
-├── configs/                 # Fichiers de configuration des 4 agents
-│   ├── opencode/
-│   │   └── config.json      # Limite contexte 32k, auto-compaction 80%
-│   ├── pi/
-│   │   ├── models.json      # Définition du provider freetoken (OpenAI-compatible)
-│   │   └── settings.json    # Modèle et provider par défaut
-│   ├── dsh/
-│   │   ├── settings.yaml    # Config du plugin llm-pi-ai / deepseek-official
-│   │   └── .credentials.yaml# Clé d'API locale dummy
-│   └── hermes/
-│       └── config.yaml      # Provider custom, base_url, context_length 65536
-│
-└── scripts/                 # Scripts d'automatisation
-    ├── 01_setup_host.sh     # Outils système, Node.js v22 LTS, uv, PyTorch CUDA
-    ├── 02_build_freetoken.sh# Compilation C++ (_pinned_tensor, _cpu_moe) & bench
-    ├── 03_install_agents.sh # Installation d'OpenCode, Pi, DSH et Hermes
-    ├── 04_apply_configs.sh  # Déploiement des configs dans vos dossiers home
-    ├── start_server.sh      # Lancement du serveur FreeToken calibré
-    └── test_agents.sh       # Suite de validation rapide des 4 agents
+```mermaid
+flowchart TD
+    subgraph Host ["Host Machine (Browser & Workspace)"]
+        Browser["🌐 Web Browser: http://127.0.0.1:8080"]
+        Workspace["📁 Local Project Workspace (/workspace/project)"]
+        HFCache["💾 Model Cache: /mnt/storage/huggingface"]
+    end
+
+    subgraph Stack ["Docker Compose Stack (One-Click)"]
+        direction TB
+        subgraph S1 ["1. Service: freetoken"]
+            FT["FreeToken GPU Inference Engine\n(NVIDIA CUDA 13 | Port 1919)\nModel: Ornith-1.5-35B-A3B-NVFP4"]
+            HC["HTTP Healthcheck: GET /v1/models\n(Waits for 200 OK after graph capture)"]
+        end
+
+        subgraph S2 ["2. Service: dsh-web"]
+            DSH["DeepSeek Harness Web UI\n(Node.js 22 LTS | Port 8080)"]
+            BWRAP["Bubblewrap Sandbox Engine\n(Isolated Linux Namespaces)"]
+        end
+
+        FT --> HC
+        HC -->|depends_on: service_healthy| DSH
+        DSH -->|http://127.0.0.1:1919/v1| FT
+        DSH --- BWRAP
+    end
+
+    Browser -->|Port 8080| DSH
+    Workspace -->|Volume Mount| DSH
+    HFCache -->|Volume Mount| FT
 ```
 
 ---
 
-## 🚀 Installation Rapide (en 4 commandes)
+## ⚡ Quick Start (One-Click Experience)
 
-Sur une nouvelle machine Linux Ubuntu/Debian :
+### Prerequisites
+- Linux (x86_64 or ARM64)
+- Docker & Docker Compose v2
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (with NVIDIA Driver >= 550)
 
+### 1. Clone the Repository
 ```bash
-# 1. Cloner FreeToken et FreeTokenLab côte à côte
-git clone https://github.com/FlashML-org/FreeToken.git
-git clone <url_de_ce_repo_ou_copie> FreeTokenLab
-
-# 2. Exécuter l'installation système, Node.js et PyTorch
+git clone https://github.com/abdennebi/FreeTokenLab.git
 cd FreeTokenLab
-./scripts/01_setup_host.sh
-
-# 3. Compiler les noyaux C++ de FreeToken
-./scripts/02_build_freetoken.sh
-
-# 4. Installer les 4 agents et déployer les configurations
-./scripts/03_install_agents.sh
-./scripts/04_apply_configs.sh
 ```
 
----
-
-## 📖 Guide Détaillé Pas-à-Pas
-
-### Étape 1 : Prérequis système & Python
-
-Le script `./scripts/01_setup_host.sh` effectue automatiquement :
-1. L'installation des paquets système indispensables : `build-essential`, `git`, `curl`, `wget`, `xz-utils`, `libopenblas-dev`.
-2. L'installation de **Node.js LTS (v22.23.2+)** dans `~/.local/` (nécessaire pour `dsh` et les routines de décompression Zstandard).
-3. L'installation du gestionnaire d'environnements ultra-rapide **`uv`**.
-4. La création de l'environnement virtuel Python 3.12 (`.venv`).
-5. L'installation de **PyTorch avec support CUDA** (`torch`, `torchvision`, `torchaudio`) et des noyaux optimisés (`sglang-kernel>=0.4.5`).
-
-### Étape 2 : Compilation & Calibration de FreeToken
-
-Le script `./scripts/02_build_freetoken.sh` compile les extensions natives :
+### 2. Launch the Stack
 ```bash
-source env.sh
-pip install -e . --no-build-isolation
-```
-Cela génère :
-- `freetoken.kernel._pinned_tensor` : allocation de mémoire hôte épinglée sans copie.
-- `freetoken.kernel._cpu_moe` : calcul matriciel vectorisé AVX2 pour les experts exécutés sur CPU.
-
-### Étape 3 : Démarrage du Serveur FreeToken
-
-Pour lancer le serveur d'inférence avec la calibration optimale pour carte 8 Go :
-
-```bash
-source env.sh
-./scripts/start_server.sh
-```
-
-*Détail des arguments appliqués :*
-- `--model nvidia/Qwen3.6-35B-A3B-NVFP4` : Télécharge et charge le modèle 35B quantifié NVFP4.
-- `--moe-backend auto` : Active le mode hybride automatique (GPU Cache + CPU AVX2 Workers).
-- `--moe-cache-size 800` : Réserve 800 slots d'experts dans la VRAM GPU (~1.3 Go).
-- `--num-tokens 32768` : Alloue 32 768 tokens de cache KV en VRAM (~640 Mo).
-- `--max-prefill-length 2048` : **Essentiel** — découpe les longs prompts par blocs de 2048 tokens afin d'éliminer tout pic de mémoire VRAM lors de l'attention.
-- `--memory-ratio 0.85` : Laisse une marge de sécurité de 15% de VRAM libre pour le système d'exploitation et le compositeur d'affichage.
-
-### Étape 4 : Installation & Configuration des 4 Agents
-
-Exécutez :
-```bash
-./scripts/03_install_agents.sh
-./scripts/04_apply_configs.sh
-```
-Vos fichiers de configuration locaux (`~/.config/opencode/`, `~/.pi/agent/`, `~/.dsh/`, `~/.hermes/`) sont instantanément prêts.
-
----
-
-## 🤖 Guide d'Utilisation des 4 Agents IA
-
-Tous les agents sont configurés pour communiquer avec l'endpoint local `http://127.0.0.1:1919/v1`.
-
-### 1. OpenCode
-Agent de code avec interface TUI moderne dans le terminal :
-```bash
-# Mode interactif
-opencode
-# ou via le lanceur dynamique FreeToken :
-ft launch opencode
-
-# Mode commande unique
-opencode -p "Analyse le fichier python/freetoken/engine/engine.py"
-```
-
-### 2. Pi Coding Agent (`pi`)
-Agent minimaliste, extrêmement rapide et hautement extensible (créé par Armin Ronacher) :
-```bash
-# Mode interactif dans le terminal
-pi
-
-# Mode avec tâche initiale
-pi "Explique l'encodage RoPE dans python/freetoken/layers/rotary.py"
-
-# Mode audit en lecture seule (pas de modifications de fichiers)
-pi --tools read,grep,find,ls "Recherche toutes les allocations de mémoire hôte"
-
-# Mode non-interactif (batch)
-pi -p "Quelles sont les dépendances C++ de ce projet ?"
-```
-
-### 3. DeepSeek Harness (`dsh`)
-L'agent officiel open-source développé par DeepSeek AI (architecture 100% modulaire) :
-```bash
-# Lancer l'interface Web interactive dans le navigateur
-dsh web
-# ou via FreeToken :
-ft launch dsh
-
-# Mode tâche unique en ligne de commande (Headless)
-dsh --profile headless "Exécute un audit de sécurité sur le serveur HTTP"
-```
-
-### 4. Hermes Agent
-L'agent autonome de Nous Research doté de 82 compétences intégrées :
-```bash
-# Chat REPL classique
-hermes
-
-# Interface TUI moderne
-hermes --tui
-
-# Exécution d'une commande unique (One-shot)
-hermes -z "Résume les classes principales du package freetoken.moe"
-```
-
----
-
-## 📊 Surveillance & Contrôle en Direct
-
-Pour suivre les performances, la mémoire et le débit en temps réel :
-
-```bash
-# 1. Statistiques globales (Prefill t/s, Decode t/s, VRAM, KV Cache pages)
-ft ctl stats
-
-# 2. Historique des requêtes HTTP et temps de latence
-ft ctl requests
-
-# 3. Ajustement à chaud du cache KV sans redémarrage
-ft ctl cache --kv 16384
-```
-
----
-
-## 🧪 Validation globale
-
-Pour vérifier que l'ensemble des 4 agents répondent correctement :
-```bash
-./scripts/test_agents.sh
-```
-
----
-
-## 🐳 Déploiement Containerisé (Docker avec support NVIDIA GPU)
-
-FreeToken peut être exécuté dans un conteneur Docker isolé avec support matériel complet (CUDA 13 + pass-through GPU NVIDIA RTX + mémoire partagée IPC) :
-
-### 1. Construction de l'image Docker
-```bash
-cd ~/Repos/FreeTokenLab
-docker build -t freetoken:latest .
-```
-
-### 2. Lancement avec `docker run`
-```bash
-./scripts/docker_run.sh "ornith-ai/Ornith-1.5-35B-A3B-NVFP4" 1919
-```
-Ou directement via la commande standard :
-```bash
-docker run -d \
-  --gpus all \
-  --ipc=host \
-  --name freetoken-server \
-  -p 1919:1919 \
-  -v /mnt/storage/huggingface:/mnt/storage/huggingface \
-  -v /mnt/storage/huggingface:/root/.cache/huggingface \
-  -e HF_HOME=/mnt/storage/huggingface \
-  freetoken:latest \
-  --model ornith-ai/Ornith-1.5-35B-A3B-NVFP4 \
-  --moe-backend auto \
-  --moe-cache-size 800 \
-  --num-tokens 32768 \
-  --max-prefill-length 2048 \
-  --memory-ratio 0.85 \
-  --host 0.0.0.0 \
-  --port 1919
-```
-
-### 3. Lancement avec `docker-compose`
-```bash
-docker compose up -d
-```
-
-### 4. Surveillance des logs du container
-```bash
-docker logs -f freetoken-server
-```
-
----
-
-## 🛠️ Industrialisation avec Makefile
-
-Un `Makefile` complet automatise toutes les opérations courantes :
-
-```bash
-cd ~/Repos/FreeTokenLab
-
-# Afficher l'aide de toutes les cibles
-make help
-
-# 1. Initialisation complète de la machine hôte et des agents
-make init-all
-
-# 2. Gestion de l'image et du container Docker
-make docker-build       # Construction de l'image avec CUDA 13
-make docker-run         # Lancement du container GPU en arrière-plan
-make docker-logs        # Consultation des logs en direct
-make docker-stop        # Arrêt du container
-
-# 3. Tests & Santé
-make healthcheck        # Vérification du serveur /v1/models
-make test               # Test des 4 agents IA
-
-# 4. Déploiement Docker Compose
-make docker-compose-up
-make docker-compose-down
-```
-
----
-
-## 🚀 Intégration Continue & Publication GHCR.io (GitHub Actions)
-
-Deux workflows GitHub Actions automatisent le cycle de vie CI/CD :
-
-1. **[`build-publish-ghcr.yml`](.github/workflows/build-publish-ghcr.yml)** :
-   - Construit l'image Docker multi-stage optimisée NVIDIA CUDA 13.
-   - Utilise le cache GitHub Actions (`type=gha`) pour des builds en < 2 minutes.
-   - Publie automatiquement sur GitHub Container Registry : `ghcr.io/abdennebi/freetoken:latest` et `ghcr.io/abdennebi/freetoken:vX.Y.Z`.
-   - Déclencheurs : Nouvelles releases, pushs sur `main` / tags `v*`, et déclenchement manuel (`workflow_dispatch`).
-
-2. **[`upstream-sync-release.yml`](.github/workflows/upstream-sync-release.yml)** :
-   - Sonde toutes les 6 heures le dépôt amont [`FlashML-org/FreeToken`](https://github.com/FlashML-org/FreeToken).
-   - Dès qu'une nouvelle version amont est publiée, le workflow crée automatiquement le tag correspondant et déclenche la compilation et publication de la nouvelle image Docker sur **GHCR.io**.
-
----
-
-## ⚡ Expérience "One-Click" avec DeepSeek Harness Web UI
-
-Grâce à Docker Compose et Bubblewrap, vous pouvez démarrer l'ensemble de la stack (Serveur GPU + Interface Web DSH) en une seule commande :
-
-```bash
-cd ~/Repos/FreeTokenLab
-
-# Démarrer le moteur GPU et l'interface Web DSH
 make up
-
-# Ouvrir l'interface dans votre navigateur
-make open   # ou rendez-vous sur http://127.0.0.1:8080
 ```
+*This command starts:*
+1. The **FreeToken GPU Server** (listening on `http://127.0.0.1:1919`).
+2. The **DeepSeek Harness Web Interface** (listening on `http://127.0.0.1:8080`).
 
-### 🔒 Sandboxing avec Bubblewrap (`bwrap`)
-Le conteneur `dsh-web` intègre nativement **Bubblewrap** en mode privilégié (`privileged: true`), permettant à l'agent DeepSeek Harness d'isoler l'exécution des commandes shell et des outils sans risque pour la machine hôte.
+### 3. Open in Browser
+```bash
+make open
+```
+Or navigate directly to **[http://127.0.0.1:8080](http://127.0.0.1:8080)**.
 
-### 🛑 Arrêter la stack
+### 4. Stop the Stack
 ```bash
 make down
 ```
 
 ---
 
-## 🌍 Support Multi-Architectures (Linux AMD64 & ARM64)
+## 🛠️ Makefile Command Reference
 
-Toutes les images Docker sont désormais construites et publiées sous forme de **manifestes multi-architectures** (`linux/amd64` et `linux/arm64`) :
+Run `make help` to see all available targets:
 
-| Image | Architectures Supportées | Plateformes Cibles |
-| :--- | :--- | :--- |
-| `ghcr.io/abdennebi/freetoken` | `linux/amd64`, `linux/arm64` | Intel/AMD x86_64, NVIDIA Grace Hopper (GH200), Jetson AGX Orin, AWS Graviton + NVIDIA GPU |
-| `ghcr.io/abdennebi/freetoken-dsh` | `linux/amd64`, `linux/arm64` | Linux x86_64, Apple Silicon (M1/M2/M3/M4), Raspberry Pi 5, serveurs ARM64 |
+| Command | Description |
+| :--- | :--- |
+| **`make up`** | 🚀 Starts the complete Docker Compose stack (GPU server + DSH Web UI). |
+| **`make down`** | 🛑 Stops and cleans up all running containers. |
+| **`make open`** | 🌐 Opens the DeepSeek Harness Web UI in your default browser. |
+| **`make logs`** | 📜 Streams real-time logs from all stack containers. |
+| **`make healthcheck`** | 🔍 Checks the FreeToken OpenAI-compatible `/v1/models` endpoint. |
+| **`make test`** | 🧪 Runs validation tests across all 4 AI agents. |
+| **`make docker-build-all`** | 🐳 Builds both local Docker images (`freetoken` & `freetoken-dsh`). |
+| **`make docker-multiarch`** | 🌍 Builds and pushes multi-architecture images (`amd64` + `arm64`) to GHCR. |
+| **`make init-all`** | 💻 Fully bootstraps and compiles the environment natively on the host. |
+| **`make clean`** | 🧹 Cleans up build artifacts, caches, and temporary files. |
 
-### Utilisation automatique :
-Docker sélectionne et télécharge automatiquement la bonne architecture correspondant à votre machine hôte lors du `docker compose up` ou `docker pull`.
+---
 
-### Construction Multi-Arch locale :
+## 🤖 Using the 4 AI Agents
+
+All agent configurations are pre-tuned for optimal context windows and reasoning capabilities:
+
+### 1. DeepSeek Harness (`dsh`)
+- **Web UI**: `dsh web` (or via Docker on port 8080)
+- **Headless Mode**:
+  ```bash
+  dsh --profile headless "Analyze the code in src/ and list all endpoints"
+  ```
+
+### 2. Pi Coding Agent (`pi`)
+- **Interactive TUI**: `pi`
+- **Headless Mode**:
+  ```bash
+  pi -p "Review this Python module and suggest performance improvements"
+  ```
+
+### 3. OpenCode (`opencode`)
+- **Interactive Terminal**: `opencode`
+
+### 4. Hermes Agent (`hermes`)
+- **Interactive REPL**: `hermes`
+- **Single-turn Query**:
+  ```bash
+  hermes -z "Explain the hybrid MoE offloading strategy"
+  ```
+
+---
+
+## 🐳 Docker Images & Registry (GHCR)
+
+Pre-built multi-architecture images are published to **GitHub Container Registry**:
+
 ```bash
-make docker-multiarch
+# Pull FreeToken GPU Engine
+docker pull ghcr.io/abdennebi/freetoken:latest
+
+# Pull DeepSeek Harness Web UI
+docker pull ghcr.io/abdennebi/freetoken-dsh:latest
 ```
+
+---
+
+## 💻 Native Host Installation (Alternative to Docker)
+
+If you prefer running directly on the host without Docker:
+
+```bash
+# 1. Setup system dependencies, Node.js LTS, and Python venv
+./scripts/01_setup_host.sh
+
+# 2. Compile native C++ extensions (_pinned_tensor and _cpu_moe)
+./scripts/02_build_freetoken.sh
+
+# 3. Install all 4 AI agents
+./scripts/03_install_agents.sh
+
+# 4. Apply tuned configurations
+./scripts/04_apply_configs.sh
+
+# 5. Start the FreeToken Server
+./scripts/start_server.sh "ornith-ai/Ornith-1.5-35B-A3B-NVFP4" 127.0.0.1 1919
+```
+
+---
+
+## 📄 License & Credits
+
+- FreeToken Inference Engine by [FlashML-org](https://github.com/FlashML-org/FreeToken).
+- DeepSeek Harness by [DeepSeek AI](https://github.com/deepseek-ai/deepseek-harness).
+- FreeTokenLab Automation & Integration Suite by [abdennebi](https://github.com/abdennebi).
+- Licensed under the Apache License, Version 2.0.
