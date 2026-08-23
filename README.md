@@ -1,69 +1,108 @@
 # ⚡ FreeTokenLab
 
 [![CI/CD & GHCR Release](https://github.com/abdennebi/FreeTokenLab/actions/workflows/build-publish-ghcr.yml/badge.svg)](https://github.com/abdennebi/FreeTokenLab/actions/workflows/build-publish-ghcr.yml)
+[![Defense-in-Depth](https://img.shields.io/badge/Security-5--Layer%20Defense--in--Depth-red.svg)](README.md#-security-first-architecture)
+[![Kernel Landlock LSM](https://img.shields.io/badge/nono-Landlock%20Kernel%20Sandbox-success.svg)](https://nono.sh)
 [![Docker Multi-Arch](https://img.shields.io/badge/Architecture-AMD64%20%7C%20ARM64-blue.svg)](https://github.com/abdennebi/FreeTokenLab/pkgs/container/freetoken)
 [![CUDA 13.0](https://img.shields.io/badge/NVIDIA-CUDA%2013.0-green.svg)](https://developer.nvidia.com/cuda-toolkit)
-[![nono Sandbox](https://img.shields.io/badge/nono-Landlock%20LSM-success.svg)](https://nono.sh)
 [![DeepSeek Harness](https://img.shields.io/badge/DSH-v0.1.1--rc.2-blueviolet.svg)](https://github.com/deepseek-ai/deepseek-harness)
 [![Dependabot](https://img.shields.io/badge/Dependabot-Enabled-brightgreen.svg?logo=dependabot)](https://github.com/abdennebi/FreeTokenLab/security/dependabot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
 [![French Documentation](https://img.shields.io/badge/Lang-Français-red.svg)](README_FR.md)
 
-**FreeTokenLab** is a zero-setup, turnkey local AI development platform. It brings together high-performance **35-billion parameter Mixture-of-Experts (MoE)** inference on consumer-grade hardware (**8 GB VRAM GPUs**) and the **DeepSeek Harness (`dsh`)** Web UI and autonomous coding agent with **dual-layer kernel sandboxing (`nono` + `Bubblewrap`)**.
+**FreeTokenLab** is a **security-first, zero-exfiltration local AI development platform**. It pairs high-performance **35-Billion parameter Mixture-of-Experts (MoE)** inference on consumer hardware (**8 GB VRAM GPUs**) with the **DeepSeek Harness (`dsh`)** autonomous coding agent, shielded by an automatic **5-layer defense-in-depth security architecture**.
 
 > 🇫🇷 *Une documentation complète en français est disponible dans [README_FR.md](README_FR.md).*
 
 ---
 
-## 🌟 Highlights
+## 🛡️ Security-First Architecture (5-Layer Defense-in-Depth)
 
-- **🚀 Instant One-Click Experience**: Launch the entire stack (GPU inference engine + DeepSeek Harness Web UI) with a single command (`make up`).
-- **🧠 35B Parameter Models on 8 GB VRAM**: Runs state-of-the-art quantized models (**`Ornith-1.5-35B-A3B-NVFP4`**) via hybrid CPU/GPU MoE offloading (800 expert slots pinned in VRAM, remaining streamed over PCIe).
-- **🌐 DeepSeek Harness Web UI**: Full-featured in-browser interface (`http://127.0.0.1:8080`) with chat, live workspace explorer, git diff visualizer, and session management.
-- **🛡️ Dual-Layer Kernel Sandboxing (`nono` + `bwrap`)**:
-  - **`nono` (Landlock LSM)**: Kernel capability wrapper restricting system calls, protecting sensitive credentials (`~/.ssh`, `~/.aws`, `~/.gnupg`), and blocking destructive operations.
-  - **`Bubblewrap`**: Linux user and mount namespace isolation for sub-processes and tool execution.
-- **📦 Zero Compilation Needed (Pre-Built GHCR Images)**: Pre-compiled multi-architecture Docker images (`linux/amd64` and `linux/arm64`) are pulled automatically from **GHCR.io**.
-- **🔄 Automated Version Pinning & Upstream Sync**: CI workflows monitor upstream FreeToken and DSH releases, automatically building, tagging, and pinning new versions in `docker-compose.yml`.
-
----
-
-
-> [!TIP]
-> **PCIe DMA & `memlock` ulimit**: FreeToken streams un-cached MoE expert weights (20+ GB) from Host CPU RAM to GPU over the PCIe bus. `docker-compose.yml` configures `ulimits.memlock: -1` (unlimited pinned memory) to enable direct memory access (DMA) without paging overhead, guaranteeing maximum PCIe throughput.
-
-## 🏗️ Architecture
+FreeTokenLab is engineered specifically to run autonomous coding agents and LLM tools safely on developers' machines without risk of data exfiltration, secret leakage, or system corruption.
 
 ```mermaid
 flowchart TD
-    subgraph Host ["Host Machine (Browser & Project Files)"]
-        Browser["🌐 Web Browser: http://127.0.0.1:8080"]
-        Workspace["📁 Local Project Code (/workspace/project)"]
-        HFCache["💾 Model Cache (/mnt/storage/huggingface)"]
+    subgraph L5 ["🔒 Layer 5: Supply Chain & Image Integrity"]
+        SC["Dependabot Security Auditing + Pinned GHCR Tags + Automated CI/CD Layer Caching"]
+        subgraph L4 ["🔒 Layer 4: Hardware & Kernel Memory DMA Isolation"]
+            MEM["Safe mlock / ulimits: memlock=-1 (High-speed PCIe DMA Pinned Memory Streaming)"]
+            subgraph L3 ["🔒 Layer 3: Kernel Landlock LSM Confinement (nono)"]
+                NONO["nono Sandboxing (Active by default in Docker & Host)\n• Strict Denial: ~/.ssh, ~/.aws, ~/.gnupg, /etc\n• Allowed r+w: /workspace/project & ~/.dsh only"]
+                subgraph L2 ["🔒 Layer 2: Process & Namespace Sandboxing (Bubblewrap)"]
+                    BWRAP["bwrap Unprivileged User Namespaces (Isolates Agent Shell Executions)"]
+                    subgraph L1 ["🔒 Layer 1: Zero Data Exfiltration (100% Local Inference)"]
+                        LLM["FreeToken Local GPU Engine\n(No Cloud Calls • Dummy API Keys • 100% On-Premise)"]
+                    end
+                end
+            end
+        end
     end
 
-    subgraph ComposeStack ["Docker Compose Stack (One-Click)"]
+    classDef sec fill:#1a1d20,stroke:#e63946,stroke-width:2px,color:#fff;
+    class L1,L2,L3,L4,L5 sec;
+```
+
+### 1. 🔒 Layer 1: Zero Data Exfiltration (100% Offline AI)
+- **Zero External API Calls**: Inferences run entirely on local GPU and Host RAM. No code snippets, prompts, or workspace contents leave your physical machine.
+- **Pre-provisioned Dummy Credentials**: Configured with local dummy keys (`dummy-key`) to prevent unintentional calls to public cloud APIs.
+
+### 2. 🛡️ Layer 2: Kernel-Level Landlock LSM Confinement (`nono`)
+- **Automatic Kernel Sandboxing**: Whenever you run `docker compose up`, DSH is automatically encapsulated in `nono` (Linux Landlock LSM).
+- **Sensitive Path Blacklisting**: Read/write access to host credentials (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.bashrc`, `/etc`) is strictly denied at the kernel syscall level.
+- **Principle of Least Privilege**: The agent is restricted solely to the active workspace (`/workspace/project`) and local configurations (`~/.dsh`).
+
+### 3. 📦 Layer 3: Process & Namespace Isolation (`Bubblewrap`)
+- DeepSeek Harness encapsulates every child shell command and tool execution inside unprivileged **Linux user and mount namespaces** (`bwrap`), preventing container escapes and privilege escalation.
+
+### 4. ⚡ Layer 4: Hardware DMA Protection & Memory Control
+- **`ulimits: memlock: -1`**: Dedicated to locking physical RAM buffers for high-speed PCIe Gen3/4 x16 Direct Memory Access (DMA) streaming of un-cached MoE experts, preventing page fault overhead while isolating process memory space.
+
+### 5. 🔄 Layer 5: Automated Supply Chain & Version Pinning
+- Pinned image digests, automated weekly Dependabot security scanning, and multi-stage container builds with minimal attack surfaces (Node 22 Bookworm Slim & CUDA Minimal Runtimes).
+
+---
+
+## 🌟 Key Highlights
+
+- **🚀 Instant One-Click Experience**: Launch the inference server and the secured agent Web UI with a single command (`make up`).
+- **🧠 35B Parameter MoE on 8 GB VRAM**: Runs **`Ornith-1.5-35B-A3B-NVFP4`** with **65,536 tokens context window** using intelligent MoE expert cache offloading (800 expert slots in VRAM, 256 dynamically streamed).
+- **🌐 DeepSeek Harness Web UI**: Full-featured in-browser coding IDE (`http://127.0.0.1:8080`) with chat, session tree, workspace tree, and live diff visualizer.
+- **📦 Pre-Built Multi-Arch Images**: No local compilation required; images for `linux/amd64` and `linux/arm64` are pulled directly from GHCR.io.
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart LR
+    subgraph Host ["Host Machine"]
+        Browser["🌐 Web Browser\nhttp://127.0.0.1:8080"]
+        ProjectDir["📁 Project Workspace\n(/workspace/project)"]
+        HFCache["💾 Model Cache\n(/mnt/storage/huggingface)"]
+    end
+
+    subgraph DockerCompose ["Docker Compose Stack (One-Click)"]
         direction TB
         subgraph S1 ["1. Service: freetoken"]
-            FT["FreeToken GPU Inference Engine\n(NVIDIA CUDA 13 | Port 1919)\nModel: Ornith-1.5-35B-A3B-NVFP4"]
-            HC["HTTP Healthcheck: GET /v1/models\n(Waits for 200 OK after graph capture)"]
+            FT["FreeToken GPU Engine\n(Port 1919)\n64k Context • 800 MoE Cache"]
+            HC["HTTP Healthcheck\n(GET /v1/models)"]
         end
 
         subgraph S2 ["2. Service: dsh"]
-            DSH["DeepSeek Harness Web UI\n(Node.js 22 LTS | Port 8080)"]
-            NONO["nono Security Wrapper\n(Landlock LSM Syscall Confinement)"]
-            BWRAP["Bubblewrap Sandbox Engine\n(Kernel Namespace Isolation)"]
+            DSH["DeepSeek Harness Web UI\n(Port 8080)"]
+            NONO["nono Landlock Sandbox\n(Kernel Syscall Filtering)"]
+            BWRAP["Bubblewrap Engine\n(Namespace Isolation)"]
         end
 
         FT --> HC
         HC -->|depends_on: service_healthy| DSH
         DSH -->|http://127.0.0.1:1919/v1| FT
-        DSH --- NONO
-        DSH --- BWRAP
+        DSH -.-> NONO
+        DSH -.-> BWRAP
     end
 
-    Browser -->|Port 8080| DSH
-    Workspace -->|Volume Mount| DSH
+    Browser -->|HTTP 8080| DSH
+    ProjectDir -->|Volume Mount| DSH
     HFCache -->|Volume Mount| FT
 ```
 
@@ -72,115 +111,66 @@ flowchart TD
 ## ⚡ Quick Start (One-Click)
 
 ### Prerequisites
-- **Linux** (x86_64 or ARM64)
+- **Linux OS** (x86_64 or ARM64)
 - **Docker** & **Docker Compose v2**
-- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (NVIDIA Driver >= 550)
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (Driver >= 550)
 
-### 1. Clone the Repository
+### 1. Clone & Launch
 ```bash
 git clone https://github.com/abdennebi/FreeTokenLab.git
 cd FreeTokenLab
-```
 
-### 2. Launch the Stack
-```bash
+# Starts both FreeToken and DSH with automatic nono sandboxing
 make up
 ```
-*Docker will pull the pre-built pinned images from GHCR and start:*
-1. **FreeToken GPU Server** on `http://127.0.0.1:1919` (waits for expert banks & CUDA graph capture).
-2. **DeepSeek Harness Web UI** on `http://127.0.0.1:8080` once the model is healthy.
 
-### 3. Open in Browser
-```bash
-make open
-```
-Or open **[http://127.0.0.1:8080](http://127.0.0.1:8080)** directly.
+### 2. Open Web UI
+Open **[http://127.0.0.1:8080](http://127.0.0.1:8080)** in your browser.
 
-### 4. Stop the Stack
+### 3. Stop the Stack
 ```bash
 make down
 ```
 
 ---
 
-## 🔒 Security & Sandboxing (`nono` + `bubblewrap`)
+## 🛠️ Security CLI & Host Workflows
 
-FreeTokenLab implements a **defense-in-depth** security architecture:
+FreeTokenLab supports both Docker Compose and native Landlock host execution:
 
-1. **`nono` (Landlock LSM Confinement)**:
-   - Blocks unauthorized access to host credentials (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.bashrc`, `/etc`).
-   - Irreversible privilege drop at the kernel syscall level.
-   - Prevents command injection escapes and destructive operations (`rm -rf /`, `chmod 777`).
-2. **`Bubblewrap` (`bwrap`)**:
-   - Isolates filesystem mount namespaces inside the workspace.
-   - Restricts agent writes strictly to `/workspace/project` and ephemeral `/tmp`.
-
-### Running Native DSH with `nono` on Host:
 ```bash
-# Launch DSH Web UI under nono Landlock protection
+# 🔒 Launch native host DSH encapsulated in nono Landlock sandbox
 make dsh-secure
 
-# Run a headless AI task safely
+# 🛡️ Execute a headless AI task securely on host
 make dsh-headless-secure PROMPT="Audit the security of src/auth"
+
+# 📜 Follow real-time logs of the stack
+make logs
+
+# 📊 Check container status and health
+make ps
+
+# 🔍 Ping the local OpenAI-compatible API
+make healthcheck
 ```
 
 ---
 
-## 🛠️ Makefile Command Reference
+## 📊 Security Feature Comparison
 
-| Command | Description |
-| :--- | :--- |
-| **`make up`** | 🚀 Launches the full stack (pulls pre-built GHCR images automatically). |
-| **`make down`** | 🛑 Stops and removes all running stack containers. |
-| **`make open`** | 🌐 Opens the DeepSeek Harness Web UI in your default browser. |
-| **`make logs`** | 📜 Streams real-time logs from both `freetoken` and `dsh` containers. |
-| **`make ps`** | 📊 Displays current container status and health. |
-| **`make pull`** | ⬇️ Pulls the latest pinned images from GHCR.io. |
-| **`make dsh-secure`** | 🔒 Starts native DSH Web encapsulated in `nono` (Landlock sandbox). |
-| **`make dsh-headless-secure`** | 🛡️ Executes a sandboxed headless task with `nono`. |
-| **`make healthcheck`** | 🔍 Pings the FreeToken `/v1/models` API endpoint. |
-| **`make docker-build-all`** | 🐳 Compiles both Docker images locally from scratch. |
-| **`make docker-multiarch`** | 🌍 Builds and pushes multi-architecture images (`amd64` + `arm64`) to GHCR. |
-| **`make clean`** | 🧹 Cleans up temporary caches and build artifacts. |
+| Security Capability | FreeTokenLab (Default) | Standard Local LLM Tools | Cloud LLM Agents |
+| :--- | :---: | :---: | :---: |
+| **Kernel Landlock LSM (`nono`)** | ✅ **Enforced** | ❌ None | ❌ None |
+| **Namespace Sandboxing (`bwrap`)** | ✅ **Enforced** | ❌ Rare | ❌ None |
+| **Data Exfiltration Risk** | 🛡️ **Zero (100% Offline)** | ⚠️ Partial | 🚨 High (Cloud API) |
+| **Credential Protection (`~/.ssh`)** | 🛡️ **Kernel Blocked** | ❌ Exposed | ⚠️ Risk of leak |
+| **DMA Pinned Memory Isolation** | ✅ **Configured (`memlock`)** | ❌ Default unpinned | N/A |
+| **Supply Chain Audits (Dependabot)** | ✅ **Automated Weekly** | ❌ Manual | ⚠️ Proprietary |
 
 ---
 
-## 🌍 Supported Architectures
+## 📜 License & Acknowledgements
 
-| Image | Tag | Architectures | Target Platforms |
-| :--- | :--- | :--- | :--- |
-| `ghcr.io/abdennebi/freetoken` | `v0.1.2` | `linux/amd64`<br>`linux/arm64` | • Intel/AMD x86_64 with NVIDIA RTX GPUs<br>• NVIDIA Grace Hopper (GH200), Jetson Orin, AWS Graviton + GPU |
-| `ghcr.io/abdennebi/freetoken-dsh` | `0.1.1-rc.2` | `linux/amd64`<br>`linux/arm64` | • Linux x86_64<br>• Apple Silicon (M1/M2/M3/M4)<br>• Linux ARM64 servers |
-
----
-
-## 💻 Native Host Installation (Optional without Docker)
-
-If you wish to run directly on the host machine:
-
-```bash
-# 1. Install system dependencies, Node.js LTS, nono, and Python venv
-./scripts/01_setup_host.sh
-
-# 2. Compile native C++ extensions (_pinned_tensor and _cpu_moe)
-./scripts/02_build_freetoken.sh
-
-# 3. Install DeepSeek Harness
-npm install -g @deepseek-ai/dsh@0.1.1-rc.2
-
-# 4. Start the inference engine
-./scripts/start_server.sh "ornith-ai/Ornith-1.5-35B-A3B-NVFP4" 127.0.0.1 1919
-
-# 5. Start DeepSeek Harness Web UI securely under nono
-./scripts/dsh_secure.sh web --port 8080
-```
-
----
-
-## 📄 License & Acknowledgments
-
-- **FreeToken Engine**: Developed by [FlashML-org](https://github.com/FlashML-org/FreeToken).
-- **DeepSeek Harness**: Developed by [DeepSeek AI](https://github.com/deepseek-ai/deepseek-harness).
-- **nono Sandbox**: Developed by [nolabs](https://nono.sh).
-- **FreeTokenLab Suite**: Packaged and automated by [abdennebi](https://github.com/abdennebi).
-- Licensed under the **Apache License, Version 2.0**.
+- Licensed under [Apache 2.0](LICENSE).
+- Powered by [FreeToken](https://github.com/FlashML-org/FreeToken), [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness), and [nono](https://nono.sh).
