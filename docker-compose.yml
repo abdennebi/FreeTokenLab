@@ -9,6 +9,11 @@ services:
     ports:
       - "1919:1919"
     ipc: host
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      stack: 67108864
     environment:
       - HF_HOME=/mnt/storage/huggingface
       - CUDA_VISIBLE_DEVICES=0
