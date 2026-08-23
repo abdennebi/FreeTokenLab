@@ -1,0 +1,84 @@
+name: Check Upstream FreeToken Releases & Trigger Build
+
+on:
+  schedule:
+    # Exécution automatique toutes les 6 heures
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Forcer le déclenchement du build Docker même si aucun nouveau tag'
+        type: boolean
+        default: false
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch Latest Upstream Release
+        id: upstream
+        run: |
+          UPSTREAM_REPO="FlashML-org/FreeToken"
+          echo "Vérification des releases de $UPSTREAM_REPO..."
+          
+          LATEST_RELEASE=$(curl -fsSL https://api.github.com/repos/${UPSTREAM_REPO}/releases/latest 2>/dev/null || true)
+          UPSTREAM_TAG=$(echo "$LATEST_RELEASE" | jq -r '.tag_name // empty')
+          
+          if [ -z "$UPSTREAM_TAG" ] || [ "$UPSTREAM_TAG" == "null" ]; then
+            echo "Aucune release formelle trouvée, récupération du dernier tag..."
+            UPSTREAM_TAG=$(curl -fsSL https://api.github.com/repos/${UPSTREAM_REPO}/tags | jq -r '.[0].name // "main"')
+          fi
+          
+          echo "Dernier tag amont détecté : $UPSTREAM_TAG"
+          echo "upstream_tag=$UPSTREAM_TAG" >> $GITHUB_OUTPUT
+
+      - name: Check if Tag Already Processed
+        id: check_tag
+        run: |
+          UPSTREAM_TAG="${{ steps.upstream.outputs.upstream_tag }}"
+          FORCE_BUILD="${{ github.event.inputs.force_build }}"
+          
+          if git rev-parse "$UPSTREAM_TAG" >/dev/null 2>&1 && [ "$FORCE_BUILD" != "true" ]; then
+            echo "Tag $UPSTREAM_TAG déjà présent et traité. Aucun nouveau build nécessaire."
+            echo "need_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "Nouveau tag amont détecté ($UPSTREAM_TAG) ou build forcé !"
+            echo "need_build=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Git Tag for New Upstream Version
+        if: steps.check_tag.outputs.need_build == 'true'
+        run: |
+          UPSTREAM_TAG="${{ steps.upstream.outputs.upstream_tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "$UPSTREAM_TAG" -m "Automated build for upstream FreeToken $UPSTREAM_TAG" || true
+          git push origin "$UPSTREAM_TAG" || true
+
+      - name: Trigger Build & Publish Workflow
+        if: steps.check_tag.outputs.need_build == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build-publish-ghcr.yml',
+              ref: context.ref,
+              inputs: {
+                tag: '${{ steps.upstream.outputs.upstream_tag }}',
+                push: true
+              }
+            });
+            console.log('Workflow build-publish-ghcr.yml déclenché avec succès.');

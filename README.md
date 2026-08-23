@@ -267,3 +267,49 @@ docker compose up -d
 ```bash
 docker logs -f freetoken-server
 ```
+
+---
+
+## 🛠️ Industrialisation avec Makefile
+
+Un `Makefile` complet automatise toutes les opérations courantes :
+
+```bash
+cd ~/Repos/FreeTokenLab
+
+# Afficher l'aide de toutes les cibles
+make help
+
+# 1. Initialisation complète de la machine hôte et des agents
+make init-all
+
+# 2. Gestion de l'image et du container Docker
+make docker-build       # Construction de l'image avec CUDA 13
+make docker-run         # Lancement du container GPU en arrière-plan
+make docker-logs        # Consultation des logs en direct
+make docker-stop        # Arrêt du container
+
+# 3. Tests & Santé
+make healthcheck        # Vérification du serveur /v1/models
+make test               # Test des 4 agents IA
+
+# 4. Déploiement Docker Compose
+make docker-compose-up
+make docker-compose-down
+```
+
+---
+
+## 🚀 Intégration Continue & Publication GHCR.io (GitHub Actions)
+
+Deux workflows GitHub Actions automatisent le cycle de vie CI/CD :
+
+1. **[`build-publish-ghcr.yml`](.github/workflows/build-publish-ghcr.yml)** :
+   - Construit l'image Docker multi-stage optimisée NVIDIA CUDA 13.
+   - Utilise le cache GitHub Actions (`type=gha`) pour des builds en < 2 minutes.
+   - Publie automatiquement sur GitHub Container Registry : `ghcr.io/abdennebi/freetoken:latest` et `ghcr.io/abdennebi/freetoken:vX.Y.Z`.
+   - Déclencheurs : Nouvelles releases, pushs sur `main` / tags `v*`, et déclenchement manuel (`workflow_dispatch`).
+
+2. **[`upstream-sync-release.yml`](.github/workflows/upstream-sync-release.yml)** :
+   - Sonde toutes les 6 heures le dépôt amont [`FlashML-org/FreeToken`](https://github.com/FlashML-org/FreeToken).
+   - Dès qu'une nouvelle version amont est publiée, le workflow crée automatiquement le tag correspondant et déclenche la compilation et publication de la nouvelle image Docker sur **GHCR.io**.

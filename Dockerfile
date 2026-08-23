@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-WORKDIR /workspace/FreeToken
+WORKDIR /workspace
 
 # Setup Python 3.12 environment
 ENV VIRTUAL_ENV=/opt/venv
@@ -43,8 +43,14 @@ ENV LIBRARY_PATH="$CUDA_HOME/lib:$CUDA_HOME/lib64:/opt/venv/lib/python3.12/site-
 ENV LD_LIBRARY_PATH="$CUDA_HOME/lib:$CUDA_HOME/lib64:/opt/venv/lib/python3.12/site-packages/nvidia/cuda_runtime/lib:/usr/local/cuda/lib64"
 ENV FREETOKEN_ALLOW_CUDA_MISMATCH=1
 
-# Copy FreeToken repository
-COPY . /workspace/FreeToken
+# Clone or copy FreeToken source code
+ARG FREETOKEN_REPO=https://github.com/FlashML-org/FreeToken.git
+ARG FREETOKEN_REF=main
+
+RUN git clone --depth 1 --branch ${FREETOKEN_REF} ${FREETOKEN_REPO} /workspace/FreeToken || \
+    git clone --depth 1 ${FREETOKEN_REPO} /workspace/FreeToken
+
+WORKDIR /workspace/FreeToken
 
 # Build FreeToken and install all project dependencies
 RUN uv pip install -e . --no-build-isolation
