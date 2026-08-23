@@ -75,6 +75,11 @@ services:
       - OPENAI_API_KEY=dummy-key
     volumes:
       - ./:/workspace/project
+      - dsh_data:/home/dsh/.dsh
     depends_on:
       freetoken:
         condition: service_healthy
+
+volumes:
+  dsh_data:
+    name: freetokenlab_dsh_data
