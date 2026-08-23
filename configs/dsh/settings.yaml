@@ -1,17 +1,18 @@
+llm-deepseek:
+  baseURL: "http://127.0.0.1:1919/v1"
+
+llm-pi-ai:
+  providers:
+    freetoken:
+      api: openai-completions
+      baseURL: "http://127.0.0.1:1919/v1"
+      apiKey: "dummy-key"
+      models:
+        - id: Ornith-1.5-35B-A3B-NVFP4
+          name: "Ornith 1.5 35B NVFP4 (Local MoE)"
+          contextWindow: 65536
+          maxTokens: 8192
+
 defaultProvider: freetoken
 defaultModel: Ornith-1.5-35B-A3B-NVFP4
 defaultContextWindow: 65536
-
-providers:
-  freetoken:
-    type: openai-compatible
-    baseUrl: "http://127.0.0.1:1919/v1"
-    apiKey: "dummy-key"
-    models:
-      - id: Ornith-1.5-35B-A3B-NVFP4
-        name: "Ornith 1.5 35B NVFP4 (Local MoE)"
-        contextWindow: 65536
-        maxOutputTokens: 8192
-        features:
-          thinking: true
-          toolCalls: true

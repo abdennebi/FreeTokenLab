@@ -12,6 +12,13 @@ if ! command -v nono &>/dev/null; then
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
+# Environment variables routing DSH to local FreeToken engine
+export DEEPSEEK_BASE_URL="http://127.0.0.1:1919/v1"
+export DEEPSEEK_API_KEY="dummy-key"
+export FREETOKEN_API_KEY="dummy-key"
+export OPENAI_API_BASE="http://127.0.0.1:1919/v1"
+export OPENAI_API_KEY="dummy-key"
+
 MODE="${1:-web}"
 if [ $# -gt 0 ]; then
     shift
@@ -22,6 +29,7 @@ echo "  🔒 DeepSeek Harness (Confinement Noyau nono / Landlock)"
 echo "========================================================"
 echo "  • Espace de travail autorisé : $(pwd) (r+w)"
 echo "  • Configuration autorisée   : $HOME/.dsh (r+w)"
+echo "  • Moteur LLM FreeToken       : http://127.0.0.1:1919/v1"
 echo "  • Accès système sensible    : INTERDIT (~/.ssh, ~/.aws, /etc)"
 echo "  • Mode d'exécution          : dsh $MODE"
 echo "========================================================"
