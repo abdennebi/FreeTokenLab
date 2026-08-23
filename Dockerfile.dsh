@@ -13,7 +13,7 @@ ENV OPENAI_API_BASE=http://127.0.0.1:1919/v1
 ENV OPENAI_API_KEY=dummy-key
 
 # ------------------------------------------------------------------------------
-# Layer 1: Base System Utilities, Bubblewrap & nono (Landlock Sandbox) (Cached permanently)
+# Layer 1: Base System Utilities, Bubblewrap & nono CLI (Cached permanently)
 # ------------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bubblewrap \
