@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# 01_setup_host.sh — Installation des dépendances système, Node.js et Python
+# 01_setup_host.sh — Installation des dépendances système, Node.js, nono et Python
 # ==============================================================================
 set -euo pipefail
 
@@ -11,9 +11,9 @@ mkdir -p "$HOME/.local/bin"
 export PATH="$HOME/.local/bin:$PATH"
 
 if command -v apt-get &>/dev/null; then
-    echo "→ Installation des paquets système recommandés (build-essential, git, curl, xz)..."
+    echo "→ Installation des paquets système recommandés (build-essential, git, curl, xz, bubblewrap)..."
     sudo apt-get update -y || true
-    sudo apt-get install -y build-essential git curl wget xz-utils libopenblas-dev || true
+    sudo apt-get install -y build-essential git curl wget xz-utils libopenblas-dev bubblewrap || true
 fi
 
 echo "========================================================"
@@ -33,7 +33,17 @@ else
 fi
 
 echo "========================================================"
-echo "  3. Installation de uv (Gestionnaire d'environnement Python ultra-rapide)"
+echo "  3. Installation de nono (Sandbox Kernel Landlock)"
+echo "========================================================"
+if ! command -v nono &>/dev/null; then
+    echo "→ Installation de nono (https://nono.sh)..."
+    curl -fsSL https://nono.sh/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+echo "✓ nono $(nono --version) prêt."
+
+echo "========================================================"
+echo "  4. Installation de uv (Gestionnaire d'environnement Python)"
 echo "========================================================"
 if ! command -v uv &>/dev/null; then
     echo "→ Installation de uv..."
@@ -43,7 +53,7 @@ fi
 echo "✓ uv $(uv --version) prêt."
 
 echo "========================================================"
-echo "  4. Création de l'environnement virtuel Python 3.12"
+echo "  5. Création de l'environnement virtuel Python 3.12"
 echo "========================================================"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../FreeToken" 2>/dev/null && pwd || pwd)"
 cd "$REPO_ROOT"
@@ -57,11 +67,11 @@ source .venv/bin/activate
 echo "✓ venv activé : $(python --version)"
 
 echo "========================================================"
-echo "  5. Installation de PyTorch CUDA et dépendances"
+echo "  6. Installation de PyTorch CUDA et dépendances"
 echo "========================================================"
 echo "→ Installation de PyTorch et des kernels Triton/SGLang..."
 uv pip install --upgrade pip setuptools wheel ninja cmake
-uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130 || \
+uv pip install torch==2.11.0+cu130 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130 || \
 uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 
 uv pip install "sglang-kernel>=0.4.5" || true

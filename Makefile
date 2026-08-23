@@ -14,6 +14,7 @@ REGISTRY ?= ghcr.io
 OWNER ?= abdennebi
 TAG ?= latest
 PLATFORMS ?= linux/amd64,linux/arm64
+PROMPT ?= "Analyse le projet et liste les points clés d'architecture"
 
 # Couleurs pour l'affichage
 CYAN  := \033[36m
@@ -31,7 +32,7 @@ help: ## Affiche l'aide et la liste des commandes disponibles
 	@echo ""
 
 # ==============================================================================
-# 1. Déploiement "One-Click" Prêt à l'Emploi (Pull GHCR Automatique)
+# 1. Déploiement "One-Click" Prêt à l'Emploi (Docker Compose)
 # ==============================================================================
 
 .PHONY: up
@@ -63,7 +64,21 @@ ps: ## Affiche l'état des conteneurs Compose
 	@docker compose ps
 
 # ==============================================================================
-# 2. Construction Locale des Images (Pour Développeurs & Contributeurs)
+# 2. Sécurité & Sandboxing Natif avec nono (Landlock)
+# ==============================================================================
+
+.PHONY: dsh-secure
+dsh-secure: ## Lance DSH Web en natif encapsulé dans la sandbox noyau nono (Landlock)
+	@echo -e "$(GREEN)→ Lancement de DeepSeek Harness sous confinement nono (Landlock)...$(RESET)"
+	@./scripts/dsh_secure.sh web --port $(DSH_PORT)
+
+.PHONY: dsh-headless-secure
+dsh-headless-secure: ## Exécute une tâche DSH headless isolée avec nono (ex: make dsh-headless-secure PROMPT="...")
+	@echo -e "$(GREEN)→ Exécution headless sécurisée avec nono...$(RESET)"
+	@./scripts/dsh_secure.sh --profile headless $(PROMPT)
+
+# ==============================================================================
+# 3. Construction des Images Docker
 # ==============================================================================
 
 .PHONY: docker-build-all
@@ -71,12 +86,12 @@ docker-build-all: docker-build docker-build-dsh ## Compile localement les deux i
 
 .PHONY: docker-build
 docker-build: ## Compile localement l'image Docker FreeToken GPU
-	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/$(IMAGE_NAME):$(TAG)...$(RESET)"
+	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/$(IMAGE_NAME)...$(RESET)"
 	@docker compose build freetoken
 
 .PHONY: docker-build-dsh
 docker-build-dsh: ## Compile localement l'image Docker DeepSeek Harness Web
-	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/freetoken-dsh:latest...$(RESET)"
+	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/freetoken-dsh...$(RESET)"
 	@docker compose build dsh
 
 .PHONY: docker-multiarch
@@ -87,39 +102,23 @@ docker-multiarch: ## Construit et publie les images Multi-Arch (linux/amd64,linu
 	@echo -e "$(GREEN)✅ Publication Multi-Arch terminée sur $(REGISTRY)/$(OWNER)/$(RESET)"
 
 # ==============================================================================
-# 3. Installation & Environnement Hôte Natif (Optionnel sans Docker)
+# 4. Installation & Environnement Hôte Natif
 # ==============================================================================
 
-.PHONY: init-all
-init-all: setup build agents-install agents-config ## Déploiement natif sur l'hôte en une étape (Hôte + Agents)
-	@echo -e "$(GREEN)✅ Initialisation native terminée !$(RESET)"
-
 .PHONY: setup
-setup: ## Installe les paquets système, Node.js, uv et initialise le venv Python sur l'hôte
+setup: ## Installe les paquets système, Node.js, nono, uv et initialise le venv Python
 	@./scripts/01_setup_host.sh
 
 .PHONY: build
 build: ## Compile les extensions C++ natives FreeToken (_pinned_tensor & _cpu_moe) sur l'hôte
 	@./scripts/02_build_freetoken.sh
 
-.PHONY: agents-install
-agents-install: ## Installe les 4 agents IA sur l'hôte (OpenCode, Pi, DSH, Hermes)
-	@./scripts/03_install_agents.sh
-
-.PHONY: agents-config
-agents-config: ## Applique les configurations optimales aux 4 agents sur l'hôte
-	@./scripts/04_apply_configs.sh
-
 .PHONY: serve
 serve: ## Démarre le serveur FreeToken en natif sur l'hôte
 	@./scripts/start_server.sh "$(MODEL)" 127.0.0.1 "$(PORT)"
 
-.PHONY: test
-test: ## Teste les 4 agents contre le serveur actif
-	@./scripts/test_agents.sh
-
 # ==============================================================================
-# 4. Diagnostics & Nettoyage
+# 5. Diagnostics & Nettoyage
 # ==============================================================================
 
 .PHONY: healthcheck

@@ -3,12 +3,13 @@
 [![CI/CD & GHCR Release](https://github.com/abdennebi/FreeTokenLab/actions/workflows/build-publish-ghcr.yml/badge.svg)](https://github.com/abdennebi/FreeTokenLab/actions/workflows/build-publish-ghcr.yml)
 [![Docker Multi-Arch](https://img.shields.io/badge/Architecture-AMD64%20%7C%20ARM64-blue.svg)](https://github.com/abdennebi/FreeTokenLab/pkgs/container/freetoken)
 [![CUDA 13.0](https://img.shields.io/badge/NVIDIA-CUDA%2013.0-green.svg)](https://developer.nvidia.com/cuda-toolkit)
+[![nono Sandbox](https://img.shields.io/badge/nono-Landlock%20LSM-success.svg)](https://nono.sh)
 [![DeepSeek Harness](https://img.shields.io/badge/DSH-v0.1.1--rc.2-blueviolet.svg)](https://github.com/deepseek-ai/deepseek-harness)
 [![Dependabot](https://img.shields.io/badge/Dependabot-Enabled-brightgreen.svg?logo=dependabot)](https://github.com/abdennebi/FreeTokenLab/security/dependabot)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
 [![French Documentation](https://img.shields.io/badge/Lang-Français-red.svg)](README_FR.md)
 
-**FreeTokenLab** is a zero-setup, turnkey local AI development platform. It brings together high-performance **35-billion parameter Mixture-of-Experts (MoE)** inference on consumer-grade hardware (**8 GB VRAM GPUs**) and the **DeepSeek Harness (`dsh`)** Web UI and autonomous coding agent with native **Bubblewrap sandboxing**.
+**FreeTokenLab** is a zero-setup, turnkey local AI development platform. It brings together high-performance **35-billion parameter Mixture-of-Experts (MoE)** inference on consumer-grade hardware (**8 GB VRAM GPUs**) and the **DeepSeek Harness (`dsh`)** Web UI and autonomous coding agent with **dual-layer kernel sandboxing (`nono` + `Bubblewrap`)**.
 
 > 🇫🇷 *Une documentation complète en français est disponible dans [README_FR.md](README_FR.md).*
 
@@ -19,7 +20,9 @@
 - **🚀 Instant One-Click Experience**: Launch the entire stack (GPU inference engine + DeepSeek Harness Web UI) with a single command (`make up`).
 - **🧠 35B Parameter Models on 8 GB VRAM**: Runs state-of-the-art quantized models (**`Ornith-1.5-35B-A3B-NVFP4`**) via hybrid CPU/GPU MoE offloading (800 expert slots pinned in VRAM, remaining streamed over PCIe).
 - **🌐 DeepSeek Harness Web UI**: Full-featured in-browser interface (`http://127.0.0.1:8080`) with chat, live workspace explorer, git diff visualizer, and session management.
-- **🔒 Kernel-Level Sandboxing with Bubblewrap (`bwrap`)**: Isolated Linux user/mount namespaces protect your host machine during tool and shell execution.
+- **🛡️ Dual-Layer Kernel Sandboxing (`nono` + `bwrap`)**:
+  - **`nono` (Landlock LSM)**: Kernel capability wrapper restricting system calls, protecting sensitive credentials (`~/.ssh`, `~/.aws`, `~/.gnupg`), and blocking destructive operations.
+  - **`Bubblewrap`**: Linux user and mount namespace isolation for sub-processes and tool execution.
 - **📦 Zero Compilation Needed (Pre-Built GHCR Images)**: Pre-compiled multi-architecture Docker images (`linux/amd64` and `linux/arm64`) are pulled automatically from **GHCR.io**.
 - **🔄 Automated Version Pinning & Upstream Sync**: CI workflows monitor upstream FreeToken and DSH releases, automatically building, tagging, and pinning new versions in `docker-compose.yml`.
 
@@ -44,12 +47,14 @@ flowchart TD
 
         subgraph S2 ["2. Service: dsh"]
             DSH["DeepSeek Harness Web UI\n(Node.js 22 LTS | Port 8080)"]
+            NONO["nono Security Wrapper\n(Landlock LSM Syscall Confinement)"]
             BWRAP["Bubblewrap Sandbox Engine\n(Kernel Namespace Isolation)"]
         end
 
         FT --> HC
         HC -->|depends_on: service_healthy| DSH
         DSH -->|http://127.0.0.1:1919/v1| FT
+        DSH --- NONO
         DSH --- BWRAP
     end
 
@@ -94,27 +99,26 @@ make down
 
 ---
 
-## 🤖 DeepSeek Harness (`dsh`) Usage
+## 🔒 Security & Sandboxing (`nono` + `bubblewrap`)
 
-### 1. Web Interface (GUI)
-Access `http://127.0.0.1:8080` for:
-- 💬 **Interactive Chat**: High-speed reasoning and code generation powered by Ornith 35B.
-- 📂 **Workspace Explorer**: Live directory navigation and file inspection.
-- 🔍 **Visual Code Diffs**: Interactive review and approval of code edits before applying them.
-- 📜 **Session History**: Resume previous tasks and track token consumption.
+FreeTokenLab implements a **defense-in-depth** security architecture:
 
-### 2. Headless CLI Mode
-You can also run batch tasks directly from the terminal:
+1. **`nono` (Landlock LSM Confinement)**:
+   - Blocks unauthorized access to host credentials (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.bashrc`, `/etc`).
+   - Irreversible privilege drop at the kernel syscall level.
+   - Prevents command injection escapes and destructive operations (`rm -rf /`, `chmod 777`).
+2. **`Bubblewrap` (`bwrap`)**:
+   - Isolates filesystem mount namespaces inside the workspace.
+   - Restricts agent writes strictly to `/workspace/project` and ephemeral `/tmp`.
+
+### Running Native DSH with `nono` on Host:
 ```bash
-# Run a single-shot task inside the container
-docker compose exec dsh dsh --profile headless "Analyze src/ and document all public APIs"
-```
+# Launch DSH Web UI under nono Landlock protection
+make dsh-secure
 
-### 3. Security & Sandboxing (`bubblewrap`)
-DeepSeek Harness uses **Bubblewrap (`bwrap`)** to enforce strict filesystem boundaries:
-- Host filesystem is mounted in **read-only** mode.
-- Modifications are restricted strictly to `/workspace/project` and ephemeral `/tmp`.
-- Private PID and `/proc` namespaces prevent subprocesses from inspecting host processes.
+# Run a headless AI task safely
+make dsh-headless-secure PROMPT="Audit the security of src/auth"
+```
 
 ---
 
@@ -128,6 +132,8 @@ DeepSeek Harness uses **Bubblewrap (`bwrap`)** to enforce strict filesystem boun
 | **`make logs`** | 📜 Streams real-time logs from both `freetoken` and `dsh` containers. |
 | **`make ps`** | 📊 Displays current container status and health. |
 | **`make pull`** | ⬇️ Pulls the latest pinned images from GHCR.io. |
+| **`make dsh-secure`** | 🔒 Starts native DSH Web encapsulated in `nono` (Landlock sandbox). |
+| **`make dsh-headless-secure`** | 🛡️ Executes a sandboxed headless task with `nono`. |
 | **`make healthcheck`** | 🔍 Pings the FreeToken `/v1/models` API endpoint. |
 | **`make docker-build-all`** | 🐳 Compiles both Docker images locally from scratch. |
 | **`make docker-multiarch`** | 🌍 Builds and pushes multi-architecture images (`amd64` + `arm64`) to GHCR. |
@@ -149,7 +155,7 @@ DeepSeek Harness uses **Bubblewrap (`bwrap`)** to enforce strict filesystem boun
 If you wish to run directly on the host machine:
 
 ```bash
-# 1. Install system dependencies, Node.js LTS, and Python venv
+# 1. Install system dependencies, Node.js LTS, nono, and Python venv
 ./scripts/01_setup_host.sh
 
 # 2. Compile native C++ extensions (_pinned_tensor and _cpu_moe)
@@ -161,8 +167,8 @@ npm install -g @deepseek-ai/dsh@0.1.1-rc.2
 # 4. Start the inference engine
 ./scripts/start_server.sh "ornith-ai/Ornith-1.5-35B-A3B-NVFP4" 127.0.0.1 1919
 
-# 5. Start DeepSeek Harness Web UI (in another terminal)
-dsh web --port 8080
+# 5. Start DeepSeek Harness Web UI securely under nono
+./scripts/dsh_secure.sh web --port 8080
 ```
 
 ---
@@ -171,5 +177,6 @@ dsh web --port 8080
 
 - **FreeToken Engine**: Developed by [FlashML-org](https://github.com/FlashML-org/FreeToken).
 - **DeepSeek Harness**: Developed by [DeepSeek AI](https://github.com/deepseek-ai/deepseek-harness).
+- **nono Sandbox**: Developed by [nolabs](https://nono.sh).
 - **FreeTokenLab Suite**: Packaged and automated by [abdennebi](https://github.com/abdennebi).
 - Licensed under the **Apache License, Version 2.0**.
