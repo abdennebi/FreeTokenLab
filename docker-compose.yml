@@ -59,7 +59,7 @@ services:
       start_period: 30s
 
   dsh:
-    image: ghcr.io/abdennebi/freetoken-dsh:0.1.1-rc.2
+    image: ghcr.io/abdennebi/freetoken-dsh:0.1.2-rc.1
     build:
       context: .
       dockerfile: Dockerfile.dsh
