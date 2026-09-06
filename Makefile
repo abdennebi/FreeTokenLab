@@ -13,6 +13,7 @@ IMAGE_NAME ?= freetoken
 REGISTRY ?= ghcr.io
 OWNER ?= abdennebi
 TAG ?= latest
+FREETOKEN_REF ?= main
 PLATFORMS ?= linux/amd64,linux/arm64
 PROMPT ?= "Analyse le projet et liste les points clés d'architecture"
 
@@ -85,9 +86,9 @@ dsh-headless-secure: ## Exécute une tâche DSH headless isolée avec nono (ex: 
 docker-build-all: docker-build docker-build-dsh ## Compile localement les deux images Docker (Moteur GPU + DSH Web)
 
 .PHONY: docker-build
-docker-build: ## Compile localement l'image Docker FreeToken GPU
-	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/$(IMAGE_NAME)...$(RESET)"
-	@docker compose build freetoken
+docker-build: ## Compile localement l'image Docker FreeToken GPU (ex: make docker-build FREETOKEN_REF=main)
+	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/$(IMAGE_NAME) (ref: $(FREETOKEN_REF))...$(RESET)"
+	@docker compose build --build-arg FREETOKEN_REF=$(FREETOKEN_REF) freetoken
 
 .PHONY: docker-build-dsh
 docker-build-dsh: ## Compile localement l'image Docker DeepSeek Harness Web
