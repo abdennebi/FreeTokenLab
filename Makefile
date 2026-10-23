@@ -14,6 +14,7 @@ REGISTRY ?= ghcr.io
 OWNER ?= abdennebi
 TAG ?= latest
 FREETOKEN_REF ?= main
+DSH_VERSION ?= 0.2.1-rc.2
 PLATFORMS ?= linux/amd64,linux/arm64
 PROMPT ?= "Analyse le projet et liste les points clés d'architecture"
 
@@ -91,9 +92,9 @@ docker-build: ## Compile localement l'image Docker FreeToken GPU (ex: make docke
 	@docker compose build --build-arg FREETOKEN_REF=$(FREETOKEN_REF) freetoken
 
 .PHONY: docker-build-dsh
-docker-build-dsh: ## Compile localement l'image Docker DeepSeek Harness Web
-	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/freetoken-dsh...$(RESET)"
-	@docker compose build dsh
+docker-build-dsh: ## Compile localement l'image Docker DeepSeek Harness Web (ex: make docker-build-dsh DSH_VERSION=0.2.1-rc.2)
+	@echo -e "$(GREEN)→ Compilation locale de $(REGISTRY)/$(OWNER)/freetoken-dsh (version: $(DSH_VERSION))...$(RESET)"
+	@docker compose build --build-arg DSH_VERSION=$(DSH_VERSION) dsh
 
 .PHONY: docker-multiarch
 docker-multiarch: ## Construit et publie les images Multi-Arch (linux/amd64,linux/arm64) sur GHCR
